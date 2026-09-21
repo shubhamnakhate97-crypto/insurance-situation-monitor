@@ -1,0 +1,13 @@
+services:
+  free:
+    build:
+      context: .
+      args:
+        APP: web-free
+    ports: ["3000:3000"]
+  pro:
+    build:
+      context: .
+      args:
+        APP: web-pro
+    ports: ["3001:3000"]

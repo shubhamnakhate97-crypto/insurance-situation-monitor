@@ -1,0 +1,15 @@
+{
+  "name": "insight-underwriting-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @insurance/web-free --filter @insurance/web-pro dev",
+    "dev:free": "pnpm --filter @insurance/web-free dev",
+    "dev:pro": "pnpm --filter @insurance/web-pro dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint:boundaries": "node scripts/check-boundaries.mjs",
+    "verify": "pnpm lint:boundaries && pnpm test && pnpm build"
+  }
+}
