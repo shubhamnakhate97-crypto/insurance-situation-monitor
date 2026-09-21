@@ -6,6 +6,7 @@ const banned = ["@insurance/overlay-pro", "apps/web-pro", "packages/overlay-pro"
 const files = [];
 const walk = (dir) => {
   for (const entry of readdirSync(dir)) {
+    if (["node_modules", "dist", ".next", "coverage"].includes(entry)) continue;
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) walk(path);
     else if (/\.(ts|tsx|js|json)$/.test(entry)) files.push(path);
