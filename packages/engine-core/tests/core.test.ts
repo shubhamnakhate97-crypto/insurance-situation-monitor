@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertEventProvenance, demoEvents, demoSanctions, normalizeGeocode, resolveEntity, screenSanctions, toReviewQueue } from "../src";
+import { adapterCatalogue, adapterRegistry, assertEventProvenance, demoEvents, demoSanctions, isAdapterEnabled, normalizeGeocode, resolveEntity, screenSanctions, toReviewQueue } from "../src";
 
 const provenance = { sourceName: "GLEIF fixture", sourceUrl: "https://api.gleif.org/api/v1", fetchedAt: "2026-09-21T00:00:00Z" };
 
@@ -28,5 +28,13 @@ describe("safety-critical engine behavior", () => {
     const result = screenSanctions("North Star Meridian Trading", demoSanctions);
     expect(result.status).toBe("MATCH");
     expect(result.evidence[0]).toMatchObject({ list: "OFAC SDN synthetic fixture", program: "CYBER2 synthetic demo" });
+  });
+
+  it("gives every source an offline fixture adapter and disables restricted sources", async () => {
+    expect(Object.keys(adapterRegistry)).toHaveLength(adapterCatalogue.length);
+    expect(isAdapterEnabled("open-meteo")).toBe(false);
+    expect(isAdapterEnabled("acled")).toBe(false);
+    expect(isAdapterEnabled("aisstream")).toBe(false);
+    expect(await adapterRegistry["usgs-fdsn"].load({ mode: "fixture", now: new Date() })).toMatchObject({ fixture: true, source: "USGS FDSN" });
   });
 });

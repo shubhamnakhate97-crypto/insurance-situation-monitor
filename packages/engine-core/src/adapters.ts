@@ -16,6 +16,15 @@ export interface FeedAdapter<T = SituationEvent[]> {
   load(context: AdapterContext): Promise<T>;
 }
 
+export interface AdapterDescriptor {
+  id: string;
+  sourceName: string;
+  endpoint: string;
+  cadenceMinutes: number;
+  defaultEnabled: boolean;
+  licensePosture: FeedAdapter["licensePosture"];
+}
+
 export async function withBackoff<T>(operation: () => Promise<T>, attempts = 3, baseMs = 50): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -36,6 +45,48 @@ export class MemoryCache<T> {
   }
   set(data: T, ttlMs: number, now = Date.now()): void {
     this.value = { data, expiresAt: now + ttlMs };
+  }
+}
+
+/**
+ * Shared implementation used by every v1 source adapter. A concrete parser is
+ * injected per source, while fixture behavior, caching and retry remain uniform.
+ */
+export class CachedSourceAdapter<T> implements FeedAdapter<T> {
+  readonly id: string;
+  readonly sourceName: string;
+  readonly endpoint: string;
+  readonly cadenceMinutes: number;
+  readonly defaultEnabled: boolean;
+  readonly licensePosture: FeedAdapter["licensePosture"];
+  private cache = new MemoryCache<T>();
+
+  constructor(
+    descriptor: AdapterDescriptor,
+    private fixture: () => T,
+    private parseLive: (response: Response) => Promise<T> = async (response) => response.json() as Promise<T>,
+  ) {
+    Object.assign(this, descriptor);
+    this.id = descriptor.id;
+    this.sourceName = descriptor.sourceName;
+    this.endpoint = descriptor.endpoint;
+    this.cadenceMinutes = descriptor.cadenceMinutes;
+    this.defaultEnabled = descriptor.defaultEnabled;
+    this.licensePosture = descriptor.licensePosture;
+  }
+
+  async load(context: AdapterContext): Promise<T> {
+    if (context.mode === "fixture") return this.fixture();
+    const cached = this.cache.get(context.now.getTime());
+    if (cached !== undefined) return cached;
+    const fetcher = context.fetcher ?? fetch;
+    const data = await withBackoff(async () => {
+      const response = await fetcher(this.endpoint, { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error(`${this.id} returned ${response.status}`);
+      return this.parseLive(response);
+    });
+    this.cache.set(data, this.cadenceMinutes * 60_000, context.now.getTime());
+    return data;
   }
 }
 
@@ -63,6 +114,22 @@ export const adapterCatalogue = [
   ["opensky", "https://opensky-network.org/api", 1, false, "non-commercial"],
   ["commercial-geocoder", "TODO(me)", 0, false, "licensed"],
 ] as const;
+
+const sourceNames: Record<string, string> = {
+  "usgs-fdsn": "USGS FDSN", gdacs: "GDACS", "noaa-ibtracs": "NOAA IBTrACS", "nasa-firms": "NASA FIRMS",
+  "open-meteo": "Open-Meteo", ofac: "OFAC Sanctions List Service", "eu-sanctions": "EU Consolidated Sanctions",
+  "un-sanctions": "UN Security Council Sanctions", gleif: "GLEIF LEI", "sec-edgar": "SEC EDGAR", "india-mca": "India MCA data.gov.in",
+  gdelt: "GDELT", nvd: "NVD", "cisa-kev": "CISA KEV", "first-epss": "FIRST EPSS", "world-bank": "World Bank",
+  acled: "ACLED", opensanctions: "OpenSanctions", opencorporates: "OpenCorporates", aisstream: "aisstream.io", opensky: "OpenSky",
+  "commercial-geocoder": "Commercial geocoder",
+};
+
+export const adapterRegistry: Record<string, CachedSourceAdapter<unknown>> = Object.fromEntries(
+  adapterCatalogue.map(([id, endpoint, cadenceMinutes, defaultEnabled, licensePosture]) => [id, new CachedSourceAdapter(
+    { id, sourceName: sourceNames[id], endpoint, cadenceMinutes, defaultEnabled, licensePosture },
+    () => ({ fixture: true, source: sourceNames[id], records: [] }),
+  )]),
+);
 
 export function isAdapterEnabled(
   id: string,
