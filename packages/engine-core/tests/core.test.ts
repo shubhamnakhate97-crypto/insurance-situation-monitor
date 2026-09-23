@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { adapterCatalogue, adapterRegistry, assertEventProvenance, demoEvents, demoSanctions, isAdapterEnabled, normalizeGeocode, resolveEntity, screenSanctions, toReviewQueue } from "../src";
+import { adapterCatalogue, adapterRegistry, assertEventProvenance, demoEvents, demoSanctions, isAdapterEnabled, normalizeGeocode, parseUsgsGeoJson, resolveEntity, screenSanctions, toReviewQueue } from "../src";
+import usgsSample from "./fixtures/usgs-sample.json";
 
 const provenance = { sourceName: "GLEIF fixture", sourceUrl: "https://api.gleif.org/api/v1", fetchedAt: "2026-09-21T00:00:00Z" };
 
@@ -35,6 +36,15 @@ describe("safety-critical engine behavior", () => {
     expect(isAdapterEnabled("open-meteo")).toBe(false);
     expect(isAdapterEnabled("acled")).toBe(false);
     expect(isAdapterEnabled("aisstream")).toBe(false);
-    expect(await adapterRegistry["usgs-fdsn"].load({ mode: "fixture", now: new Date() })).toMatchObject({ fixture: true, source: "USGS FDSN" });
+    expect(await adapterRegistry["usgs-fdsn"].load({ mode: "fixture", now: new Date() })).toEqual([]);
+  });
+
+  it("parses a USGS GeoJSON feature into a sourced earthquake event", () => {
+    const [event] = parseUsgsGeoJson(usgsSample as unknown as Parameters<typeof parseUsgsGeoJson>[0], "2026-09-21T10:00:00.000Z");
+    expect(event).toMatchObject({ id: "us7000demo", kind: "earthquake", status: "active" });
+    expect(event.position?.value).toEqual({ lon: 142.1, lat: 38.2 });
+    expect(event.magnitude.value).toBe(5.7);
+    expect(event.depthKm.value).toBe(32.4);
+    expect(event.title.provenance.sourceName).toBe("USGS FDSN");
   });
 });

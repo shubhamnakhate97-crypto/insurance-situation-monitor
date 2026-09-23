@@ -28,7 +28,7 @@ export interface InsuranceContext {
 
 const at = "2026-09-21T06:00:00.000Z";
 const emdat: Provenance = { sourceName: "EM-DAT public summaries / curated demo", sourceUrl: "https://www.emdat.be/", fetchedAt: at, licenseNote: "Metadata only; verify production reuse rights" };
-const lensMethod: Provenance = { sourceName: "Insurance Lenses v1 methodology", sourceUrl: "https://github.com/example/insurance-situation-monitor/blob/main/packages/insurance-lenses/README.md", fetchedAt: at };
+const lensMethod: Provenance = { sourceName: "Insurance Lenses v1 methodology", sourceUrl: "https://github.com/shubhamnakhate97-crypto/insurance-situation-monitor/blob/main/packages/insurance-lenses/src/index.ts", fetchedAt: at };
 const worldPop: Provenance = { sourceName: "WorldPop 2020 density proxy (fixture)", sourceUrl: "https://www.worldpop.org/", fetchedAt: at };
 
 export const historicalLosses: HistoricalLossEvent[] = [

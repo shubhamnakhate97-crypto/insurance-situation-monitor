@@ -1,15 +1,9 @@
-FROM node:22-alpine AS build
+FROM node:24-alpine
 RUN corepack enable
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile=false
-ARG APP=web-free
-RUN pnpm --filter @insurance/${APP} build
-
-FROM node:22-alpine
-RUN npm install -g serve
-WORKDIR /app
-ARG APP=web-free
-COPY --from=build /app/apps/${APP}/dist ./dist
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter web build
 EXPOSE 3000
-CMD ["serve", "-s", "dist", "-l", "3000"]
+# Internal demo: keep the same-origin feed middleware, not a static-only file server.
+CMD ["pnpm", "--filter", "web", "preview"]

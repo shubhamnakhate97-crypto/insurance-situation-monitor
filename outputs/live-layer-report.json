@@ -1,0 +1,244 @@
+{
+  "checkedAt": "2026-09-23T05:52:48.830Z",
+  "results": [
+    {
+      "id": "usgs",
+      "endpoint": "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2026-08-24&minmagnitude=2.5",
+      "endpoints": [
+        "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2026-08-24&minmagnitude=2.5"
+      ],
+      "fetchedAt": "2026-09-23T05:52:48.830Z",
+      "liveData": true,
+      "records": 2017,
+      "points": 2017,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "gdacs",
+      "endpoint": "https://www.gdacs.org/xml/rss.xml",
+      "endpoints": [
+        "https://www.gdacs.org/xml/rss.xml"
+      ],
+      "fetchedAt": "2026-09-23T05:52:18.161Z",
+      "liveData": true,
+      "records": 373,
+      "points": 373,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "nhc",
+      "endpoint": "https://www.nhc.noaa.gov/CurrentStorms.json",
+      "endpoints": [
+        "https://www.nhc.noaa.gov/CurrentStorms.json",
+        "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer?f=pjson",
+        "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer/137/query?where=1%3D1&outFields=*&outSR=4326&f=geojson",
+        "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer/163/query?where=1%3D1&outFields=*&outSR=4326&f=geojson"
+      ],
+      "fetchedAt": "2026-09-23T05:52:19.713Z",
+      "liveData": true,
+      "records": 4,
+      "points": 2,
+      "lines": 2,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "gdelt",
+      "endpoint": "https://api.gdeltproject.org/api/v2/geo/geo?query=%28protest%20OR%20conflict%20OR%20unrest%29&mode=PointData&format=GeoJSON&timespan=72h",
+      "endpoints": [
+        "https://api.gdeltproject.org/api/v2/geo/geo?query=%28protest%20OR%20conflict%20OR%20unrest%29&mode=PointData&format=GeoJSON&timespan=72h"
+      ],
+      "fetchedAt": null,
+      "liveData": false,
+      "records": 0,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": "https://api.gdeltproject.org/api/v2/geo/geo?query=%28protest%20OR%20conflict%20OR%20unrest%29&mode=PointData&format=GeoJSON&timespan=72h: HTTP 404",
+      "warnings": []
+    },
+    {
+      "id": "ofac",
+      "endpoint": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML",
+      "endpoints": [
+        "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
+      ],
+      "fetchedAt": "2026-09-22T11:20:24.383Z",
+      "liveData": true,
+      "records": 19393,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "eu",
+      "endpoint": "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw",
+      "endpoints": [
+        "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content?token=dG9rZW4tMjAxNw"
+      ],
+      "fetchedAt": "2026-09-22T18:48:18.990Z",
+      "liveData": true,
+      "records": 6241,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "un",
+      "endpoint": "https://scsanctions.un.org/resources/xml/en/consolidated.xml",
+      "endpoints": [
+        "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+      ],
+      "fetchedAt": "2026-09-22T18:48:05.632Z",
+      "liveData": true,
+      "records": 1011,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "volcano",
+      "endpoint": "https://volcano.si.edu/news/WeeklyVolcanoRSS.xml",
+      "endpoints": [
+        "https://volcano.si.edu/news/WeeklyVolcanoRSS.xml"
+      ],
+      "fetchedAt": "2026-09-23T05:52:16.844Z",
+      "liveData": true,
+      "records": 20,
+      "points": 20,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "air-quality",
+      "endpoint": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=28.61,19.08,51.51,40.71,39.9,1.35,-33.87,6.52,-23.55,25.2&longitude=77.21,72.88,-0.13,-74.01,116.4,103.82,151.21,3.38,-46.63,55.27&current=us_aqi,pm2_5&timezone=GMT",
+      "endpoints": [
+        "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=28.61,19.08,51.51,40.71,39.9,1.35,-33.87,6.52,-23.55,25.2&longitude=77.21,72.88,-0.13,-74.01,116.4,103.82,151.21,3.38,-46.63,55.27&current=us_aqi,pm2_5&timezone=GMT"
+      ],
+      "fetchedAt": "2026-09-23T05:53:02.284Z",
+      "liveData": true,
+      "records": 10,
+      "points": 10,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "nws",
+      "endpoint": "https://api.weather.gov/alerts/active",
+      "endpoints": [
+        "https://api.weather.gov/alerts/active"
+      ],
+      "fetchedAt": "2026-09-23T05:52:17.249Z",
+      "liveData": true,
+      "records": 438,
+      "points": 0,
+      "lines": 0,
+      "polygons": 45,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "significant",
+      "endpoint": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson",
+      "endpoints": [
+        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson"
+      ],
+      "fetchedAt": "2026-09-23T05:52:16.272Z",
+      "liveData": true,
+      "records": 8,
+      "points": 8,
+      "lines": 0,
+      "polygons": 0,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "world-bank",
+      "endpoint": "https://api.worldbank.org/v2/country/all/indicator/GOV_WGI_PV.EST?source=3&format=json&per_page=400&mrnev=1",
+      "endpoints": [
+        "https://api.worldbank.org/v2/country/all/indicator/GOV_WGI_PV.EST?source=3&format=json&per_page=400&mrnev=1",
+        "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+      ],
+      "fetchedAt": "2026-09-23T05:53:03.035Z",
+      "liveData": true,
+      "records": 169,
+      "points": 0,
+      "lines": 0,
+      "polygons": 169,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "id": "firms",
+      "endpoint": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/world/1",
+      "endpoints": [
+        "https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/world/1"
+      ],
+      "fetchedAt": null,
+      "liveData": false,
+      "records": 0,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": "Set VITE_FIRMS_MAP_KEY; free NASA registration required.",
+      "warnings": []
+    },
+    {
+      "id": "opensky",
+      "endpoint": "https://opensky-network.org/api/states/all",
+      "endpoints": [
+        "https://opensky-network.org/api/states/all"
+      ],
+      "fetchedAt": null,
+      "liveData": false,
+      "records": 0,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": "Requires OPENSKY_LICENSE_ACCEPTED=true and server-side client credentials.",
+      "warnings": []
+    },
+    {
+      "id": "ais",
+      "endpoint": "wss://stream.aisstream.io/v0/stream",
+      "endpoints": [
+        "wss://stream.aisstream.io/v0/stream"
+      ],
+      "fetchedAt": null,
+      "liveData": false,
+      "records": 0,
+      "points": 0,
+      "lines": 0,
+      "polygons": 0,
+      "error": "Requires AISSTREAM_LICENSE_ACCEPTED=true and AISSTREAM_API_KEY (server-side).",
+      "warnings": []
+    },
+    {
+      "id": "portfolio",
+      "endpoint": "Local synthetic portfolio generator v1",
+      "liveData": false,
+      "synthetic": true,
+      "records": 150,
+      "points": 150,
+      "lines": 0,
+      "polygons": 0
+    }
+  ]
+}

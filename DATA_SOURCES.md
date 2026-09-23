@@ -1,5 +1,31 @@
 # Data-source catalogue
 
+## Active map implementation (supersedes the legacy scaffold table below)
+
+All map feeds are live-only, with independent failures and no fixture fallback. Exact URLs and measured results are in `outputs/live-layer-report.json`.
+
+| Layer | Cache | Default | Verified result / limits |
+|---|---:|---|---|
+| USGS FDSN | 5 min | On | Real magnitude 2.5+ events, last 30 days |
+| GDACS RSS | 5 min | On | Real geolocated multi-hazard reports; public-service attribution retained |
+| NOAA NHC | 5 min | On | Current positions + forecast tracks; Atlantic/Eastern/Central Pacific |
+| GDELT GEO 2.0 | 5 min | Off | Requested 72h mentions; endpoint returned 404, no invented results |
+| OFAC SDN / EU / UN | 24h memory + disk | Off, user enables | Live official lists; no explicit coordinates in supplied formats; screening only |
+| Smithsonian / USGS GVP | 60 min | On | Weekly volcano locations and report links; not comprehensive or real-time |
+| Open-Meteo / CAMS | 60 min | Off | 10 modelled city samples; free API non-commercial only; TODO(me) before commercial use |
+| NOAA NWS | 5 min | On | US-only alerts; only source-supplied polygons plotted |
+| USGS significant events | 5 min | On | Overlapping significant-earthquake subset; not a tsunami warning service |
+| World Bank WGI / Natural Earth | 24h | Off | Annual GOV_WGI_PV.EST joined to coarse public-domain country boundaries; source attribution retained |
+| Portfolio | Local deterministic seed | On | 150 explicitly fictional insured sites |
+| NASA FIRMS | 5 min | Off, key required | Parser and missing-key path tested; no credentialed live verification |
+| OpenSky | 1 min | Off, credentials + terms flag | Parser tested; non-commercial/licensed terms require review |
+| AISstream | 1 min, 12s collection window | Off, key + terms flag | Parser tested; non-commercial/licensed terms require review; bounded snapshot, not global completeness |
+| OSM raster tiles | Browser HTTP caching | On | Keyless; OSM attribution shown, provider usage policy applies |
+
+## Legacy catalogue — planned/scaffold sources, NOT a claim of implemented live layers
+
+The following original catalogue describes earlier adapter scaffolding. Only the map implementations above are currently wired into the app. “Fixture-first” entries below must not be interpreted as real live feeds.
+
 | Source | Purpose | Cadence | Commercial posture | Default |
 |---|---|---:|---|---|
 | USGS FDSN | Earthquakes | 5 min | US government/open | On (fixture-first) |

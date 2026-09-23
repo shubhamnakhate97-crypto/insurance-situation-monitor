@@ -1,6 +1,0 @@
-{
-  "name":"@insurance/web-pro","version":"1.0.0","private":true,"type":"module","license":"UNLICENSED",
-  "scripts":{"dev":"vite --host 0.0.0.0 --port 3001","build":"tsc -b && vite build","test":"vitest run --passWithNoTests"},
-  "dependencies":{"@insurance/engine-core":"workspace:*","@insurance/insurance-lenses":"workspace:*","@insurance/overlay-pro":"workspace:*","react":"^19.1.1","react-dom":"^19.1.1"},
-  "devDependencies":{"@types/react":"^19.1.12","@types/react-dom":"^19.1.9","@vitejs/plugin-react":"^5.0.2","typescript":"^5.9.2","vite":"^7.1.5","vitest":"^3.2.4"}
-}

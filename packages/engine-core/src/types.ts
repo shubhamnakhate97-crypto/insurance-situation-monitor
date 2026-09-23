@@ -19,6 +19,7 @@ export interface Position {
 }
 
 export type EventKind =
+  | "volcano" | "drought" | "air-quality" | "weather" | "tsunami" | "country-risk" | "aviation" | "maritime"
   | "cyclone"
   | "earthquake"
   | "flood"
@@ -28,6 +29,7 @@ export type EventKind =
   | "sanctions";
 
 export interface SituationEvent {
+  geometry?: { type: string; coordinates: unknown };
   id: string;
   kind: EventKind;
   title: Fact<string>;

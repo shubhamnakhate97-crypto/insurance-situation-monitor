@@ -1,13 +1,16 @@
 services:
-  free:
+  web:
     build:
       context: .
-      args:
-        APP: web-free
     ports: ["3000:3000"]
-  pro:
-    build:
-      context: .
-      args:
-        APP: web-pro
-    ports: ["3001:3000"]
+    environment:
+      VITE_FIRMS_MAP_KEY: ${VITE_FIRMS_MAP_KEY:-}
+      OPENSKY_CLIENT_ID: ${OPENSKY_CLIENT_ID:-}
+      OPENSKY_CLIENT_SECRET: ${OPENSKY_CLIENT_SECRET:-}
+      OPENSKY_LICENSE_ACCEPTED: ${OPENSKY_LICENSE_ACCEPTED:-false}
+      AISSTREAM_API_KEY: ${AISSTREAM_API_KEY:-}
+      AISSTREAM_LICENSE_ACCEPTED: ${AISSTREAM_LICENSE_ACCEPTED:-false}
+    volumes:
+      - feed-cache:/app/data/cache
+volumes:
+  feed-cache:

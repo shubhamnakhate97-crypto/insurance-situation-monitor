@@ -1,4 +1,5 @@
-import type { SituationEvent } from "./types";
+import { fact } from "./provenance";
+import { INVESTIGATION_DISCLAIMER, type Fact, type SituationEvent } from "./types";
 
 export interface AdapterContext {
   mode: "fixture" | "live";
@@ -47,6 +48,92 @@ export class MemoryCache<T> {
     this.value = { data, expiresAt: now + ttlMs };
   }
 }
+
+interface UsgsFeatureCollection {
+  type: "FeatureCollection";
+  features: Array<{
+    id: string;
+    geometry: { type: "Point"; coordinates: [number, number, number] } | null;
+    properties: {
+      mag: number | null;
+      place: string | null;
+      time: number;
+      url: string;
+      title?: string;
+    };
+  }>;
+}
+
+export interface UsgsEarthquakeEvent extends SituationEvent {
+  magnitude: Fact<number>;
+  depthKm: Fact<number>;
+  place: Fact<string>;
+  eventUrl: Fact<string>;
+}
+
+export function parseUsgsGeoJson(payload: UsgsFeatureCollection, fetchedAt: string): UsgsEarthquakeEvent[] {
+  return payload.features.flatMap((feature) => {
+    if (!feature.geometry || feature.geometry.type !== "Point" || feature.properties.mag === null) return [];
+    const [lon, lat, depth] = feature.geometry.coordinates;
+    const place = feature.properties.place ?? "Unknown location";
+    const provenance = {
+      sourceName: "USGS FDSN",
+      sourceUrl: feature.properties.url,
+      fetchedAt,
+      licenseNote: "USGS public-domain earthquake data",
+    };
+    const magnitude = feature.properties.mag;
+    return [{
+      id: feature.id,
+      kind: "earthquake" as const,
+      title: fact(feature.properties.title ?? `M ${magnitude.toFixed(1)} — ${place}`, provenance),
+      observedAt: fact(new Date(feature.properties.time).toISOString(), provenance),
+      severity: fact(Math.max(0, Math.min(1, magnitude / 8)), provenance),
+      position: fact({ lat, lon }, provenance),
+      summary: fact(`${place}; magnitude ${magnitude.toFixed(1)}, depth ${depth.toFixed(1)} km.`, provenance),
+      status: "active" as const,
+      tags: ["earthquake", "usgs", `magnitude-${Math.floor(magnitude)}`],
+      disclaimer: INVESTIGATION_DISCLAIMER,
+      magnitude: fact(magnitude, provenance),
+      depthKm: fact(depth, provenance),
+      place: fact(place, provenance),
+      eventUrl: fact(feature.properties.url, provenance),
+    }];
+  });
+}
+
+export class UsgsEarthquakeAdapter implements FeedAdapter<UsgsEarthquakeEvent[]> {
+  readonly id = "usgs-fdsn";
+  readonly sourceName = "USGS FDSN";
+  readonly endpoint = "https://earthquake.usgs.gov/fdsnws/event/1/query";
+  readonly cadenceMinutes = 5;
+  readonly defaultEnabled = true;
+  readonly licensePosture = "commercial-safe" as const;
+  private cache = new MemoryCache<UsgsEarthquakeEvent[]>();
+
+  async load(context: AdapterContext): Promise<UsgsEarthquakeEvent[]> {
+    const cached = this.cache.get(context.now.getTime());
+    if (cached !== undefined) return cached;
+    if (context.mode === "fixture") return [];
+    const startTime = new Date(context.now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const url = `${this.endpoint}?format=geojson&starttime=${startTime}&minmagnitude=2.5`;
+    try {
+      const fetcher = context.fetcher ?? fetch;
+      const payload = await withBackoff(async () => {
+        const response = await fetcher(url, { headers: { Accept: "application/geo+json, application/json" } });
+        if (!response.ok) throw new Error(`USGS returned ${response.status}`);
+        return response.json() as Promise<UsgsFeatureCollection>;
+      });
+      const events = parseUsgsGeoJson(payload, context.now.toISOString());
+      this.cache.set(events, this.cadenceMinutes * 60_000, context.now.getTime());
+      return events;
+    } catch {
+      return [];
+    }
+  }
+}
+
+export const usgsEarthquakeAdapter = new UsgsEarthquakeAdapter();
 
 /**
  * Shared implementation used by every v1 source adapter. A concrete parser is
@@ -124,11 +211,13 @@ const sourceNames: Record<string, string> = {
   "commercial-geocoder": "Commercial geocoder",
 };
 
-export const adapterRegistry: Record<string, CachedSourceAdapter<unknown>> = Object.fromEntries(
-  adapterCatalogue.map(([id, endpoint, cadenceMinutes, defaultEnabled, licensePosture]) => [id, new CachedSourceAdapter(
-    { id, sourceName: sourceNames[id], endpoint, cadenceMinutes, defaultEnabled, licensePosture },
-    () => ({ fixture: true, source: sourceNames[id], records: [] }),
-  )]),
+export const adapterRegistry: Record<string, FeedAdapter<unknown>> = Object.fromEntries(
+  adapterCatalogue.map(([id, endpoint, cadenceMinutes, defaultEnabled, licensePosture]) => [id, id === "usgs-fdsn"
+    ? usgsEarthquakeAdapter
+    : new CachedSourceAdapter(
+      { id, sourceName: sourceNames[id], endpoint, cadenceMinutes, defaultEnabled, licensePosture },
+      () => ({ fixture: true, source: sourceNames[id], records: [] }),
+    )]),
 );
 
 export function isAdapterEnabled(

@@ -1,20 +1,12 @@
-/* PROPRIETARY — Copyright (c) 2026. All rights reserved. */
+/* SPDX-License-Identifier: MIT */
 import { INVESTIGATION_DISCLAIMER, screenSanctions, type Position, type Provenance, type SanctionsRecord, type SituationEvent } from "@insurance/engine-core";
 
-export type Tier = "anonymous" | "free-registered" | "pro";
-export interface Entitlement { userId: string; tier: Tier; source: "demo" | "stripe" | "none"; expiresAt?: string }
 export interface Site { id: string; clientId: string; name: string; address: string; position: Position; sumInsured: number; perilCover: string[]; country: string; provenance: Provenance }
 export interface Entity { id: string; clientId: string; name: string; jurisdiction: string; resolvedId?: string; sumInsured: number; ultimateParentId?: string; ownershipPercent?: number; provenance: Provenance }
 export interface Vessel { id: string; clientId: string; name: string; imo: string; position: Position; cargoValue: number; route: string; provenance: Provenance }
 export interface SupplyChain { id: string; clientId: string; name: string; supplierEntityIds: string[]; provenance: Provenance }
 export interface Portfolio { sites: Site[]; entities: Entity[]; vessels: Vessel[]; supplyChains: SupplyChain[] }
 export interface PortfolioAlert { id: string; eventId: string; eventTitle: string; exposureAtRisk: number; severity: number; weightedScore: number; touchedSiteIds: string[]; provenance: Provenance[]; disclaimer: typeof INVESTIGATION_DISCLAIMER }
-
-export function requirePro(entitlement: Entitlement): void {
-  if (entitlement.tier !== "pro" || (entitlement.expiresAt && new Date(entitlement.expiresAt) < new Date())) {
-    throw new Error("PRO_ENTITLEMENT_REQUIRED");
-  }
-}
 
 const radians = (value: number) => value * Math.PI / 180;
 export function distanceKm(a: Position, b: Position): number {
@@ -92,7 +84,7 @@ export function parseSitesCsv(csv: string, clientId: string, provenance: Provena
   }); return {rows,issues};
 }
 
-const seedProvenance: Provenance = { sourceName: "Synthetic portfolio generator v1", sourceUrl: "https://github.com/example/insurance-situation-monitor/blob/main/packages/overlay-pro/src/index.ts", fetchedAt: "2026-09-21T06:00:00.000Z", licenseNote: "Fictional data" };
+const seedProvenance: Provenance = { sourceName: "Synthetic portfolio generator v1", sourceUrl: "https://github.com/shubhamnakhate97-crypto/insurance-situation-monitor/blob/main/packages/overlay-pro/src/index.ts", fetchedAt: "2026-09-21T06:00:00.000Z", licenseNote: "Fictional data" };
 const cities = [
   ["Mumbai","India",19.08,72.88],["Chennai","India",13.08,80.27],["Kolkata","India",22.57,88.36],["Bhubaneswar","India",20.30,85.82],["Hyderabad","India",17.39,78.49],["Delhi","India",28.61,77.21],["Ahmedabad","India",23.02,72.57],["Singapore","Singapore",1.35,103.82],["Dubai","UAE",25.2,55.27],["Rotterdam","Netherlands",51.92,4.48],["Houston","USA",29.76,-95.37],["Tokyo","Japan",35.68,139.65],["Sydney","Australia",-33.87,151.21],["London","UK",51.51,-0.13],["São Paulo","Brazil",-23.55,-46.63],
 ] as const;
@@ -105,12 +97,3 @@ export function createSyntheticPortfolio(): Portfolio {
   return {sites,entities,vessels,supplyChains};
 }
 const chokepointPositions=[[26.5,56.2],[30.4,32.3],[12.6,43.3],[2.5,101.5],[9.1,-79.7]] as const;
-
-export class StripeTestBillingAdapter {
-  readonly mode = "test";
-  constructor(private secretKey?: string, private priceId?: string) {}
-  async createCheckout(userId: string) {
-    if (!this.secretKey || !this.priceId) throw new Error("STRIPE_TEST_KEYS_REQUIRED_TODO(me)");
-    return { userId, mode: this.mode, priceId: this.priceId, url: "TODO(me): create Stripe Checkout session server-side" };
-  }
-}

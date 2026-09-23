@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "us7000demo",
+      "properties": {
+        "mag": 5.7,
+        "place": "120 km E of Sendai, Japan",
+        "time": 1789981200000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000demo",
+        "title": "M 5.7 - 120 km E of Sendai, Japan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [142.1, 38.2, 32.4]
+      }
+    }
+  ]
+}

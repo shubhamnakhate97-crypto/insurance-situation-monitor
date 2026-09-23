@@ -1,19 +1,15 @@
 # Architecture
 
 ```text
-government/open feeds -> engine-core adapters -> normalized sourced Events
-                                                |
-                         insurance-lenses <-----+
-                               |                |
-                           web-free         overlay-pro -> web-pro
+USGS FDSN -> engine-core -> sourced earthquake events --------------+
+insurance-lenses -> context and analogs ----------------------------+--> apps/web
+overlay-pro -> synthetic portfolio, exposure and accumulation ------+
 ```
 
-`engine-core` owns public types and deterministic primitives. Adapters implement cache policy, cadence, backoff and fixture mode. `insurance-lenses` adds insurance language without portfolio knowledge. `web-free` depends only on these two open packages.
+`apps/web` is the only application. It renders keyless OpenStreetMap raster tiles, live USGS earthquake circles, and distinct synthetic portfolio-site markers. Portfolio alerting, accumulation, ownership screening, and RDS stress results are shown directly—without authentication, billing, paywalls, or entitlements.
 
-`overlay-pro` depends only on `engine-core` public exports. It owns portfolio models, exposure intersections, accumulation, ownership-chain screening, client scoping, brief generation and entitlement checks. `web-pro` is the only UI allowed to import it.
+All packages are MIT-licensed. Fetch failures return an empty event array, and successful USGS responses are cached for five minutes.
 
-Every displayed `Fact<T>` has provenance (`sourceName`, `sourceUrl`, `fetchedAt`). Derived facts retain inputs plus method provenance. Low-confidence geocodes are excluded from scoring. Entity resolution produces ranked candidates; candidates below the configured threshold enter a review queue.
+Additional feeds use `engine-core/src/live-layers.ts` and `restricted-layers.ts`: a source parser produces the shared sourced `SituationEvent` with optional point/line/polygon geometry. The original USGS adapter remains independently loaded in the browser. `apps/web/feed-server.ts` loads all other feeds through a fixed catalogue, with per-feed errors, deduplicated in-flight requests and in-memory cadence caches. Official sanctions lists additionally use a 24-hour local disk cache. No live path substitutes fixtures.
 
-## Deployment
-
-Both apps are stateless React/Vite builds served by a small container. Production adapters can run as scheduled workers on Fly/Render or platform cron. Persist adapter cache and portfolio repositories in Postgres/object storage for multi-instance deployment.
+The map consumes these same events using GeoJSON circle, line and fill layers. Fill layers stay below lines/points regardless of fetch completion order. Results from disabled checkboxes are hidden and not refreshed. Country indicators never enter earthquake portfolio exposure calculations. The sanctions panel screens only explicitly enabled, successfully loaded lists; no-match wording disclaims clearance. Raw API keys remain server-side and are excluded from source links and response metadata.

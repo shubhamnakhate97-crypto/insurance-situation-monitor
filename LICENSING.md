@@ -1,9 +1,7 @@
-# Licensing boundary
+# Licensing
 
-The open engine, insurance lenses, and free web application are offered under AGPL-3.0. Network deployment of modified versions carries the AGPL source-offer obligations. Each open package includes its own `LICENSE` file and SPDX metadata.
+The entire monorepo is open source under the MIT License, including `engine-core`, `insurance-lenses`, `overlay-pro`, and `apps/web`.
 
-`packages/overlay-pro` and `apps/web-pro` are proprietary. They may consume only the documented public exports of `@insurance/engine-core`; the open applications never import them. The automated boundary check fails if this direction is violated.
+The former open-core and proprietary boundary has been removed for this internal-team demo. Portfolio overlay, exposure weighting, accumulation, ownership screening, and scenario logic are published under MIT.
 
-No third-party copyleft implementation is copied, forked, or vendored. Dependencies must pass a license review before production. Data rights are separate from software rights: adapters marked non-commercial or licensed are compiled but disabled by default.
-
-Copyright (c) 2026. All rights reserved for proprietary components.
+Data-source terms remain separate from the software license. Licensed, keyed, and non-commercial-only adapters remain disabled by default. The live USGS FDSN layer and OpenStreetMap raster tiles require no API key.
