@@ -18,4 +18,4 @@
 17. NHC covers Atlantic/Eastern/Central Pacific basins; tracks are forecasts, not observed hazard footprints. NWS covers the US; only supplied geometries are drawn. GDELT mentions are not verified incidents, and its currently failing endpoint remains clearly unavailable.
 18. World Bank political stability is annual context, not a live incident feed. Natural Earth boundaries are coarse and illustrative; not authoritative disputed-border determinations.
 19. Restricted sources cannot be live-verified without human-supplied keys and terms approval. No keys or licence acceptance are invented. Their parsers are tested offline and missing-key paths fail closed.
-20. Vite's same-origin feed middleware supports development and internal-demo preview. Static-only dist hosting is insufficient; production hardening is out of this layer-addition scope.
+20. Vite's same-origin feed middleware supports development and internal-demo preview. Vercel uses equivalent serverless functions; sanctions cache persistence is opportunistic on its ephemeral runtime. Static-only dist hosting is insufficient.

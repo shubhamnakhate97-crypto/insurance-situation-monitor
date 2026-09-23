@@ -47,6 +47,8 @@ Despite the requested `VITE_` name, FIRMS credentials are **server-only**: Vite 
 
 The app's Vite middleware is a fixed-catalogue same-origin feed service, not an arbitrary URL proxy. It avoids source CORS limitations and keeps keys out of the browser. Build/preview with `pnpm --filter web build` then `pnpm --filter web preview`; preview includes this middleware. Static-only hosting of `dist` will **not** serve additional feeds. The Docker configuration retains the service and persists the sanctions cache. Vite preview is for this internal demo, not a hardened public production server; TODO(me): move the same handler into a production Node service before public deployment.
 
+Vercel deployment is defined by the root `vercel.json` and `api/` serverless functions. Sanctions lists are loaded and matched server-side; only counts and match evidence cross the browser boundary, avoiding oversized list responses. Restricted-source secrets belong in Vercel project environment variables, never `PUBLIC_*`. The serverless `/tmp` cache is opportunistic and may be cold between invocations; official-list fetch failures remain visible and never imply clearance.
+
 ## Reproduce the measured live report
 
 Keep the app running, then in a second PowerShell terminal:

@@ -1,40 +1,22 @@
 /* SPDX-License-Identifier: MIT */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import type { Connect } from 'vite';
-import { layerDefinitions, loadLayer, type LayerResult } from '../../packages/engine-core/src/live-layers';
-import { restrictedLayers } from '../../packages/engine-core/src/restricted-layers';
+import { createLayerService } from './layer-service';
 
-// Fixed feed catalogue, never an arbitrary-URL proxy. Credentials stay on the server.
 export function feedServer(env:Record<string,string|undefined>):Connect.NextHandleFunction {
-  const definitions=[...layerDefinitions,...restrictedLayers(env)];
-  const diskCache=resolve(process.cwd(),'../../data/cache/live-layers');
-  const pending=new Map<string,Promise<LayerResult>>();
-  async function fetchLayer(id:string):Promise<LayerResult> {
-    const definition=definitions.find(d=>d.id===id)!;
-    const persistent=['ofac','eu','un'].includes(id);
-    const file=resolve(diskCache,`${id}.json`);
-    if(persistent) {
-      try {
-        const cached:LayerResult=JSON.parse(await readFile(file,'utf8'));
-        if(cached.id===id && cached.fetchedAt && Date.now()-Date.parse(cached.fetchedAt)<86400000 && !cached.error) return {...cached,cached:true};
-      } catch { /* Missing/corrupt cache: fetch the official list. */ }
-    }
-    const result=await loadLayer(definition,{mode:'live',now:new Date()});
-    if(persistent&&!result.error) {
-      try {await mkdir(diskCache,{recursive:true});await writeFile(file,JSON.stringify(result));} catch { /* Read-only hosting still has the memory cache. */ }
-    }
-    return result;
-  }
+  const service=createLayerService(env);
   return (req,res,next)=>{
-    const path=req.url?.split('?')[0];
-    if(!path?.startsWith('/api/layers')) return next();
+    const requestUrl=new URL(req.url??'/', 'http://localhost');
+    if(!requestUrl.pathname.startsWith('/api/'))return next();
     res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
-    if(req.method!=='GET') {res.statusCode=405;res.end(JSON.stringify({error:'GET only'}));return;}
-    if(path==='/api/layers') {res.end(JSON.stringify(definitions.map(({parse,fetchPayload,...meta})=>meta)));return;}
-    const id=path.slice('/api/layers/'.length);
-    if(!definitions.some(d=>d.id===id)) {res.statusCode=404;res.end(JSON.stringify({error:'Unknown layer'}));return;}
-    if(!pending.has(id)) pending.set(id,fetchLayer(id).finally(()=>pending.delete(id)));
-    void pending.get(id)!.then(result=>res.end(JSON.stringify(result))).catch(()=>{res.statusCode=500;res.end(JSON.stringify({id,events:[],error:'Feed service unavailable'}));});
+    if(req.method!=='GET'){res.statusCode=405;res.end(JSON.stringify({error:'GET only'}));return;}
+    if(requestUrl.pathname==='/api/layers'){res.end(JSON.stringify(service.definitions.map(({parse,fetchPayload,...meta})=>meta)));return;}
+    if(requestUrl.pathname==='/api/screen'){
+      const name=requestUrl.searchParams.get('name')?.trim(),lists=requestUrl.searchParams.get('lists')?.split(',')??[];
+      if(!name){res.statusCode=400;res.end(JSON.stringify({error:'A name is required'}));return;}
+      void service.screen(name,lists).then(v=>res.end(JSON.stringify(v))).catch(()=>{res.statusCode=500;res.end(JSON.stringify({error:'Screening service unavailable'}));});return;
+    }
+    const match=requestUrl.pathname.match(/^\/api\/layers\/([^/]+)$/);
+    if(!match)return next();
+    void service.loadPublic(decodeURIComponent(match[1])).then(v=>res.end(JSON.stringify(v))).catch(()=>{res.statusCode=500;res.end(JSON.stringify({id:match[1],events:[],recordCount:0,error:'Feed service unavailable'}));});
   };
 }

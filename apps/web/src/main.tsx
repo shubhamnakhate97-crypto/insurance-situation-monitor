@@ -5,7 +5,7 @@ import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection, Geometry } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
-import { INVESTIGATION_DISCLAIMER, usgsEarthquakeAdapter, screenSanctions, type UsgsEarthquakeEvent, type SituationEvent, type LayerDefinition, type LayerResult, type Provenance } from '@insurance/engine-core';
+import { INVESTIGATION_DISCLAIMER, usgsEarthquakeAdapter, type SanctionsScreening, type UsgsEarthquakeEvent, type SituationEvent, type LayerDefinition, type LayerResult, type Provenance } from '@insurance/engine-core';
 import { nearestAnalog, rdsScenarios } from '@insurance/insurance-lenses';
 import { accumulations, createSyntheticPortfolio, exposureWeightedAlerts, money, stressScenario, type Site } from '@insurance/overlay-pro';
 
@@ -85,6 +85,7 @@ function App(){
   const [enabled,setEnabled]=useState<Record<string,boolean>>({usgs:true,portfolio:true}),[loading,setLoading]=useState<Record<string,boolean>>({});
   const [mapStatus,setMapStatus]=useState('Loading basemap…'),[catalogueError,setCatalogueError]=useState('');
   const [query,setQuery]=useState(''),[screenQuery,setScreenQuery]=useState('');
+  const [screening,setScreening]=useState<SanctionsScreening>(),[screeningLoading,setScreeningLoading]=useState(false),[screenError,setScreenError]=useState('');
   const [deskOpen,setDeskOpen]=useState(false);
   const pending=useRef(new Set<string>());const portfolio=useMemo(()=>createSyntheticPortfolio(),[]);
   const load=useCallback(async(id:string)=>{
@@ -112,9 +113,15 @@ function App(){
   const alerts=useMemo(()=>exposureWeightedAlerts(quakeEvents,portfolio),[quakeEvents,portfolio]);
   const concentration=useMemo(()=>accumulations(portfolio),[portfolio]);
   const scenario=useMemo(()=>stressScenario(portfolio,rdsScenarios[0].footprint.value,rdsScenarios[0].severity.value),[portfolio]);
-  const sanctions=useMemo(()=>['ofac','eu','un'].flatMap(id=>enabled[id]?results[id]?.events??[]:[]),[results,enabled]);
-  const screening=useMemo(()=>screenQuery?screenSanctions(screenQuery,sanctions.map(e=>({id:e.id,primaryName:e.title.value,aliases:e.tags,list:e.title.provenance.sourceName,program:e.summary.value,provenance:e.title.provenance}))):undefined,[screenQuery,sanctions]);
+  const sanctionsIds=['ofac','eu','un'].filter(id=>enabled[id]);
+  const sanctionsRecordCount=sanctionsIds.reduce((sum,id)=>sum+(results[id]?.recordCount??results[id]?.events.length??0),0);
   const complete=['ofac','eu','un'].every(id=>enabled[id]&&results[id]?.fetchedAt&&!results[id]?.error);
+  const submitScreen=async(name:string)=>{
+    setScreenQuery(name);setScreening(undefined);setScreenError('');setScreeningLoading(true);
+    try{const response=await fetch(`/api/screen?name=${encodeURIComponent(name)}&lists=${encodeURIComponent(sanctionsIds.join(','))}`,{signal:AbortSignal.timeout(90000)});if(!response.ok)throw new Error(`Screening service HTTP ${response.status}`);const body=await response.json();setScreening(body.screening);}
+    catch(error){setScreenError(error instanceof Error?error.message:String(error));}
+    finally{setScreeningLoading(false);}
+  };
   return <main className="map-shell">
     <WorldMap definitions={definitions} results={results} enabled={enabled} sites={portfolio.sites} onStatus={setMapStatus}/>
     <section className="map-panel"><div className="brand"><span>SW</span><div><b>SIGNALWATCH</b><small>INSURANCE SITUATION MONITOR</small></div></div>
@@ -123,7 +130,7 @@ function App(){
       <div className="layer-controls">{groups.map(group=><details key={group} open={group==='Natural perils'||group==='Portfolio'}><summary>{group}</summary>{definitions.filter(d=>d.group===group).map(d=>{
         const r=results[d.id],count=d.id==='portfolio'?portfolio.sites.length:r?.events.filter(e=>!!geometry(e)).length??0;
         return <div className="layer-row" key={d.id}><label><input type="checkbox" checked={!!enabled[d.id]} disabled={!!d.disabledReason} onChange={()=>toggle(d)}/><i style={{background:d.color}}/><span>{d.name}</span></label>
-          <small>{d.source} · {d.id==='portfolio'?`${count} synthetic sites`:loading[d.id]?'fetching…':r?.error?'unavailable':r?`${count} map features / ${r.events.length} records`:'not loaded'}</small>
+          <small>{d.source} · {d.id==='portfolio'?`${count} synthetic sites`:loading[d.id]?'fetching…':r?.error?'unavailable':r?`${count} map features / ${r.recordCount??r.events.length} records`:'not loaded'}</small>
           {d.id==='world-bank'&&<small>Shading: teal = higher stability; rose = lower. Annual data, not live incidents.</small>}
           {d.note&&<small>{d.note}</small>}{d.disabledReason&&<small className="feed-error">Disabled: {d.disabledReason}</small>}
           {r?.warnings?.map(w=><small className="feed-error" key={w}>{w}</small>)}
@@ -138,8 +145,8 @@ function App(){
       <section><label>EARTHQUAKE EXPOSURE SCREEN</label><h3>{alerts.length} proximity indicators</h3>{alerts[0]?<p>{alerts[0].eventTitle} · {money(alerts[0].exposureAtRisk)} declared exposure within 650 km</p>:<p>No earthquake within the illustrative screening radius of covered sites.</p>}<small>650 km is not a shaking footprint.</small>{alerts[0]&&<Citation p={alerts[0].provenance[0]}/>}<Citation p={portfolio.sites[0].provenance}/></section>
       <section><label>TOP COUNTRY ACCUMULATION</label><h3>{concentration.byCountry[0]?.[0]} · {money(concentration.byCountry[0]?.[1]??0)}</h3><Citation p={portfolio.sites[0].provenance}/></section>
       <section><label>LIVE SANCTIONS NAME SCREEN</label><p>Enable OFAC, EU and UN in the layer controls. Records without source coordinates are not plotted.</p>
-        <form onSubmit={e=>{e.preventDefault();setScreenQuery(query.trim());}}><input aria-label="Company or person name" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Company or person name"/><button disabled={!query.trim()||!sanctions.length}>Screen name</button></form>
-        <p>{sanctions.length.toLocaleString()} loaded names · {complete?'All three lists loaded':'INCOMPLETE list coverage'}</p>
+        <form onSubmit={e=>{e.preventDefault();void submitScreen(query.trim());}}><input aria-label="Company or person name" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Company or person name"/><button disabled={!query.trim()||!sanctionsRecordCount||screeningLoading}>{screeningLoading?'Screening…':'Screen name'}</button></form>
+        <p>{sanctionsRecordCount.toLocaleString()} loaded names · {complete?'All three lists loaded':'INCOMPLETE list coverage'}</p>{screenError&&<p className="feed-error">{screenError}</p>}
         {screening&&<><h3>{screening.status==='CLEAR'?'No candidate in loaded lists':`${screening.status} — review required`}</h3><p>Not compliance clearance. {screenQuery}</p>{screening.evidence.map((e,i)=><p key={i}>{e.matchedName} · {e.list}<br/><a href={e.provenance.sourceUrl} target="_blank" rel="noreferrer">Source · fetched {e.provenance.fetchedAt}</a></p>)}</>}
       </section>
       <section><label>SCENARIO STRESS · SYNTHETIC</label><h3>{rdsScenarios[0].name.value}</h3><p>{scenario.touchedSites.length} sites · {money(scenario.exposureAtRisk)} declared exposure in illustrative footprint</p><Citation p={rdsScenarios[0].name.provenance}/><Citation p={portfolio.sites[0].provenance}/></section>

@@ -16,7 +16,7 @@ export interface LayerDefinition {
 }
 export interface LayerResult {
   id: string; endpoint: string; fetchedAt?: string; attemptedAt: string;
-  events: SituationEvent[]; error?: string; cached?: boolean; warnings?:string[]; endpoints?:string[];
+  events: SituationEvent[]; recordCount?:number; error?: string; cached?: boolean; warnings?:string[]; endpoints?:string[];
 }
 export function sourcedEvent(id: string, title: string, kind: EventKind, source: string, url: string, at: string,
   geometry: SituationEvent['geometry'], summary = '', severity = 0.5, observed = at): SituationEvent {
