@@ -1,5 +1,5 @@
-import { INVESTIGATION_DISCLAIMER, type SanctionsRecord, type SanctionsScreening } from "./types";
-import { similarity } from "./entity-resolution";
+import { INVESTIGATION_DISCLAIMER, type SanctionsRecord, type SanctionsScreening } from "./types.js";
+import { similarity } from "./entity-resolution.js";
 
 export function screenSanctions(
   name: string,

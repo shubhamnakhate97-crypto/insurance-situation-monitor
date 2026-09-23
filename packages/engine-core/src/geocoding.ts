@@ -1,4 +1,4 @@
-import type { GeocodeResult, Position, Provenance } from "./types";
+import type { GeocodeResult, Position, Provenance } from "./types.js";
 
 export interface RawGeocodeCandidate {
   query: string;

@@ -2,9 +2,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { layerDefinitions, loadLayer, type LayerResult } from '../../packages/engine-core/src/live-layers';
-import { restrictedLayers } from '../../packages/engine-core/src/restricted-layers';
-import { screenSanctions, type SanctionsRecord } from '../../packages/engine-core/src/index';
+import { layerDefinitions, loadLayer, type LayerResult } from '../../packages/engine-core/src/live-layers.js';
+import { restrictedLayers } from '../../packages/engine-core/src/restricted-layers.js';
+import { screenSanctions, type SanctionsRecord } from '../../packages/engine-core/src/index.js';
 
 const sanctionsIds=new Set(['ofac','eu','un']);
 const pending=new Map<string,Promise<LayerResult>>();

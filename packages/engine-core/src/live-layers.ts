@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: MIT */
-import { fact } from './provenance';
-import { INVESTIGATION_DISCLAIMER, type EventKind, type SituationEvent } from './types';
-import type { AdapterContext } from './adapters';
-import { parseUsgsGeoJson } from './adapters';
+import { fact } from './provenance.js';
+import { INVESTIGATION_DISCLAIMER, type EventKind, type SituationEvent } from './types.js';
+import type { AdapterContext } from './adapters.js';
+import { parseUsgsGeoJson } from './adapters.js';
 import { XMLParser } from 'fast-xml-parser';
 export const xml = new XMLParser({ignoreAttributes:false,parseTagValue:false});
 export const array = (v:any):any[] => v == null ? [] : Array.isArray(v) ? v : [v];

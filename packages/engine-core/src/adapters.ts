@@ -1,5 +1,5 @@
-import { fact } from "./provenance";
-import { INVESTIGATION_DISCLAIMER, type Fact, type SituationEvent } from "./types";
+import { fact } from "./provenance.js";
+import { INVESTIGATION_DISCLAIMER, type Fact, type SituationEvent } from "./types.js";
 
 export interface AdapterContext {
   mode: "fixture" | "live";

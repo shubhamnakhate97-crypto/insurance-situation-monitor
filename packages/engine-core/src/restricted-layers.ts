@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
-import { request, sourcedEvent, type LayerDefinition } from './live-layers';
-import type { SituationEvent } from './types';
+import { request, sourcedEvent, type LayerDefinition } from './live-layers.js';
+import type { SituationEvent } from './types.js';
 export const FIRMS_URL='https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/world/1';
 export function parseFirms(csv:string,at:string):SituationEvent[] {
   const [header,...lines]=csv.trim().split(/\r?\n/); const columns=header.split(',');

@@ -1,4 +1,4 @@
-import type { EntityCandidate, ResolutionResult, ReviewQueueItem } from "./types";
+import type { EntityCandidate, ResolutionResult, ReviewQueueItem } from "./types.js";
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 

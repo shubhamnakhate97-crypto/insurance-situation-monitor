@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { createLayerService } from '../../apps/web/layer-service';
+import { createLayerService } from '../../apps/web/layer-service.js';
 
 const service=createLayerService(process.env);
 export default {

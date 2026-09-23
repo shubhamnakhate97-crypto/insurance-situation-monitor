@@ -1,4 +1,4 @@
-import type { Fact, Provenance, SituationEvent } from "./types";
+import type { Fact, Provenance, SituationEvent } from "./types.js";
 
 export function fact<T>(value: T, provenance: Provenance): Fact<T> {
   if (!provenance.sourceName || !provenance.sourceUrl || !provenance.fetchedAt) {

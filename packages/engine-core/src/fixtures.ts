@@ -1,5 +1,5 @@
-import { fact } from "./provenance";
-import { INVESTIGATION_DISCLAIMER, type SanctionsRecord, type SituationEvent } from "./types";
+import { fact } from "./provenance.js";
+import { INVESTIGATION_DISCLAIMER, type SanctionsRecord, type SituationEvent } from "./types.js";
 
 const fetchedAt = "2026-09-21T06:00:00.000Z";
 const ibtracs = { sourceName: "NOAA IBTrACS fixture", sourceUrl: "https://www.ncei.noaa.gov/products/international-best-track-archive", fetchedAt };
