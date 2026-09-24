@@ -65,7 +65,7 @@ Despite the requested `VITE_` name, FIRMS credentials are **server-only**: Vite 
 
 ## Feed service and deployment
 
-The app's Vite middleware is a fixed-catalogue same-origin service for local development; Vercel functions provide production handlers. It avoids source CORS limitations and keeps keys out of the browser. Build/preview with `pnpm --filter web build` then `pnpm --filter web preview`. Static-only hosting of `dist` will **not** serve feeds or account workflows. The hourly Vercel cron refreshes eligible sources, records last-known-good snapshots and optionally sends portfolio alerts.
+The app's Vite middleware is a fixed-catalogue same-origin service for local development; Vercel functions provide production handlers. It avoids source CORS limitations and keeps keys out of the browser. Build/preview with `pnpm --filter web build` then `pnpm --filter web preview`. Static-only hosting of `dist` will **not** serve feeds or account workflows. The Vercel Hobby-compatible daily cron refreshes eligible sources, records last-known-good snapshots and optionally sends portfolio alerts. TODO(me): switch to an hourly Pro cron or external scheduler when faster background refresh is required.
 
 Vercel deployment is defined by the root `vercel.json` and `api/` serverless functions. Sanctions lists are loaded and matched server-side; only counts and match evidence cross the browser boundary, avoiding oversized list responses. Restricted-source secrets belong in Vercel project environment variables, never `PUBLIC_*`. The serverless `/tmp` cache is opportunistic and may be cold between invocations; official-list fetch failures remain visible and never imply clearance.
 

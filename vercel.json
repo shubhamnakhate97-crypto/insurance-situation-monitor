@@ -9,5 +9,5 @@
       "maxDuration": 60
     }
   },
-  "crons": [{"path":"/api/cron/ingest","schedule":"0 * * * *"}]
+  "crons": [{"path":"/api/cron/ingest","schedule":"0 0 * * *"}]
 }

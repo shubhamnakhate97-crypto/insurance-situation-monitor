@@ -18,7 +18,7 @@
 17. NHC covers Atlantic/Eastern/Central Pacific basins; tracks are forecasts, not observed hazard footprints. NWS covers the US; only supplied geometries are drawn. GDELT mentions are not verified incidents, and its currently failing endpoint remains clearly unavailable.
 18. World Bank political stability is annual context, not a live incident feed. Natural Earth boundaries are coarse and illustrative; not authoritative disputed-border determinations.
 19. Restricted sources cannot be live-verified without human-supplied keys and terms approval. No keys or licence acceptance are invented. Their parsers are tested offline and missing-key paths fail closed.
-20. Vite's same-origin feed middleware supports local development. Vercel uses functions, Postgres snapshots and an hourly protected cron; static-only dist hosting is insufficient.
+20. Vite's same-origin feed middleware supports local development. Vercel uses functions, Postgres snapshots and a daily protected cron compatible with the Hobby plan. TODO(me): use an hourly Pro cron or external scheduler when faster refresh is required. Static-only dist hosting is insufficient.
 21. Broker/insurer/reinsurer views are workflow labels over strictly account-scoped data in v1. Cross-account placement, cedant/broker relationships and delegated access require a human-approved data model. TODO(me).
 22. GDELT Cloud, an approved Google Trends provider, official RBI machine endpoint and official IRDAI feed remain disabled until credentials, endpoints and redistribution decisions are supplied. The application does not scrape those portals.
 23. Scenario footprints are synthetic and inspired by market RDS categories; they do not reproduce licensed Lloyd's or catastrophe-model data.
