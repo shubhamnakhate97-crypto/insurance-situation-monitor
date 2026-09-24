@@ -7,12 +7,17 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
 import { INVESTIGATION_DISCLAIMER, usgsEarthquakeAdapter, type SanctionsScreening, type UsgsEarthquakeEvent, type SituationEvent, type LayerDefinition, type LayerResult, type Provenance } from '@insurance/engine-core';
 import { nearestAnalog, rdsScenarios } from '@insurance/insurance-lenses';
-import { accumulations, createSyntheticPortfolio, exposureWeightedAlerts, money, stressScenario, type Site } from '@insurance/overlay-pro';
+import { accumulations, createSyntheticPortfolio, exposureWeightedAlerts, money, stressScenario, type Portfolio, type Site } from '@insurance/overlay-pro';
+
+type Role='insurer'|'broker'|'reinsurer'|'admin';
+interface ClientUser{id:string;email:string;role:Role;accountId:string}
+interface ClientBook{id:string;name:string;sites:Site[];createdAt:string}
+interface PlatformState{user:ClientUser|null;persistent:boolean;authConfigured:boolean;portfolios:ClientBook[];preferences?:{severityThreshold:number;topN:number;emailEnabled:boolean};alertStates:{alertId:string;status:string;snoozedUntil?:string}[]}
 
 type LayerMeta=Omit<LayerDefinition,'parse'|'fetchPayload'>;
 const quakeMeta:LayerMeta={id:'usgs',name:'Earthquakes M2.5+ · 30d',source:'USGS FDSN',endpoint:usgsEarthquakeAdapter.endpoint,group:'Natural perils',color:'#f0c35b',defaultOn:true};
 const siteMeta:LayerMeta={id:'portfolio',name:'Insured sites · SYNTHETIC',source:'Synthetic portfolio generator v1',endpoint:'https://github.com/shubhamnakhate97-crypto/insurance-situation-monitor/tree/main/packages/overlay-pro',group:'Portfolio',color:'#6f7cff',defaultOn:true};
-const groups=['Natural perils','Geopolitical & sanctions','Environmental','Portfolio','Restricted (keyed / licensed)'];
+const groups=['Natural perils','Geopolitical & sanctions','Economic conditions','Social demand','Legal and regulatory','Cyber exposure','Environmental','Portfolio','Restricted (keyed / licensed)'];
 const geometry=(e:SituationEvent):Geometry|undefined=>(e.geometry as Geometry|undefined)??(e.position?{type:'Point',coordinates:[e.position.value.lon,e.position.value.lat]}:undefined);
 function geoJson(events:SituationEvent[]):FeatureCollection {
   return {type:'FeatureCollection',features:events.flatMap(e=>{const g=geometry(e);return g?[{type:'Feature' as const,id:e.id,geometry:g,properties:{id:e.id,severity:e.severity.value,magnitude:(e as UsgsEarthquakeEvent).magnitude?.value??0}}]:[];})};
@@ -87,7 +92,11 @@ function App(){
   const [query,setQuery]=useState(''),[screenQuery,setScreenQuery]=useState('');
   const [screening,setScreening]=useState<SanctionsScreening>(),[screeningLoading,setScreeningLoading]=useState(false),[screenError,setScreenError]=useState('');
   const [deskOpen,setDeskOpen]=useState(false);
-  const pending=useRef(new Set<string>());const portfolio=useMemo(()=>createSyntheticPortfolio(),[]);
+  const [accountOpen,setAccountOpen]=useState(false),[platform,setPlatform]=useState<PlatformState>(),[accountError,setAccountError]=useState('');
+  const [health,setHealth]=useState<{status:string;summary:{healthy:number;total:number};feeds:{id:string;status:string}[]} >();
+  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[role,setRole]=useState<Role>('insurer'),[scenarioId,setScenarioId]=useState(rdsScenarios[0].id),[scenarioSeverity,setScenarioSeverity]=useState(rdsScenarios[0].severity.value);
+  const pending=useRef(new Set<string>()),synthetic=useMemo(()=>createSyntheticPortfolio(),[]);
+  const portfolio=useMemo<Portfolio>(()=>platform?.portfolios.length?{...synthetic,sites:platform.portfolios.flatMap(book=>book.sites)}:synthetic,[platform?.portfolios,synthetic]);
   const load=useCallback(async(id:string)=>{
     if(id==='portfolio'||pending.current.has(id))return;pending.current.add(id);setLoading(s=>({...s,[id]:true}));let result:LayerResult;
     try{
@@ -107,12 +116,18 @@ function App(){
       setEnabled(s=>({...s,...Object.fromEntries(meta.map(d=>[d.id,d.defaultOn&&!d.disabledReason]))}));meta.filter(d=>d.defaultOn&&!d.disabledReason).forEach(d=>void load(d.id));
     }).catch(()=>setCatalogueError('Feed catalogue unavailable. Run the Vite server; static-only hosting cannot serve feeds. USGS and portfolio remain independent.'));
   },[load]);
+  const bootstrap=useCallback(()=>fetch('/api/platform?action=bootstrap').then(r=>r.json()).then(setPlatform).catch(()=>setPlatform({user:null,persistent:false,authConfigured:false,portfolios:[],alertStates:[]})),[]);
+  useEffect(()=>{void bootstrap();},[bootstrap]);
+  useEffect(()=>{if(platform?.user?.role==='admin')void fetch('/api/health').then(r=>r.json()).then(setHealth);},[platform?.user?.role]);
   useEffect(()=>{const timer=setInterval(()=>{definitions.filter(d=>enabled[d.id]&&!d.disabledReason).forEach(d=>void load(d.id));},60000);return()=>clearInterval(timer);},[definitions,enabled,load]);
   const toggle=(d:LayerMeta)=>{setEnabled(s=>({...s,[d.id]:!s[d.id]}));if(!enabled[d.id]&&!d.disabledReason)void load(d.id);};
   const quakeEvents=(results.usgs?.events??[]) as UsgsEarthquakeEvent[];
-  const alerts=useMemo(()=>exposureWeightedAlerts(quakeEvents,portfolio),[quakeEvents,portfolio]);
+  const allEvents=useMemo(()=>Object.values(results).flatMap(r=>r.events),[results]);
+  const alertState=useMemo(()=>new Map(platform?.alertStates.map(v=>[v.alertId,v])??[]),[platform?.alertStates]);
+  const alerts=useMemo(()=>exposureWeightedAlerts(allEvents,portfolio).filter(a=>a.severity>=(platform?.preferences?.severityThreshold??.45)).filter(a=>{const s=alertState.get(a.id);return !s||s.status==='open'||(s.status==='snoozed'&&s.snoozedUntil&&Date.parse(s.snoozedUntil)<Date.now());}).slice(0,platform?.preferences?.topN??10),[allEvents,portfolio,platform?.preferences,alertState]);
   const concentration=useMemo(()=>accumulations(portfolio),[portfolio]);
-  const scenario=useMemo(()=>stressScenario(portfolio,rdsScenarios[0].footprint.value,rdsScenarios[0].severity.value),[portfolio]);
+  const selectedScenario=rdsScenarios.find(v=>v.id===scenarioId)??rdsScenarios[0];
+  const scenario=useMemo(()=>stressScenario(portfolio,selectedScenario.footprint.value,scenarioSeverity),[portfolio,selectedScenario,scenarioSeverity]);
   const sanctionsIds=['ofac','eu','un'].filter(id=>enabled[id]);
   const sanctionsRecordCount=sanctionsIds.reduce((sum,id)=>sum+(results[id]?.recordCount??results[id]?.events.length??0),0);
   const complete=['ofac','eu','un'].every(id=>enabled[id]&&results[id]?.fetchedAt&&!results[id]?.error);
@@ -122,6 +137,11 @@ function App(){
     catch(error){setScreenError(error instanceof Error?error.message:String(error));}
     finally{setScreeningLoading(false);}
   };
+  const account=async(action:'login'|'register'|'logout')=>{setAccountError('');try{const response=await fetch(`/api/platform?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:action==='logout'?undefined:JSON.stringify({email,password,role})});const data=await response.json();if(!response.ok)throw new Error(data.error);await bootstrap();if(action!=='logout')setAccountOpen(false);}catch(error){setAccountError(error instanceof Error?error.message:String(error));}};
+  const upload=async(file:File)=>{setAccountError('');const csv=await file.text();const response=await fetch('/api/platform?action=portfolio-upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:file.name.replace(/\.csv$/i,''),csv})});const data=await response.json();if(!response.ok){setAccountError(`${data.error}${data.issues?.[0]?` Row ${data.issues[0].row}: ${data.issues[0].message}`:''}`);return;}await bootstrap();};
+  const setAlert=async(alertId:string,status:'acknowledged'|'dismissed'|'snoozed')=>{if(!platform?.user){setAccountOpen(true);return;}await fetch('/api/platform?action=alert-state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alertId,status})});await bootstrap();};
+  const savePreferences=async(values:{severityThreshold:number;topN:number;emailEnabled:boolean})=>{if(!platform?.user){setAccountOpen(true);return;}await fetch('/api/platform?action=preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});await bootstrap();};
+  const roleLabel=platform?.user?.role==='broker'?'Client advisory':platform?.user?.role==='reinsurer'?'Accumulation':platform?.user?.role==='admin'?'Operations':platform?.user?'Underwriting':'Public demo';
   return <main className="map-shell">
     <WorldMap definitions={definitions} results={results} enabled={enabled} sites={portfolio.sites} onStatus={setMapStatus}/>
     <section className="map-panel"><div className="brand"><span>SW</span><div><b>SIGNALWATCH</b><small>INSURANCE SITUATION MONITOR</small></div></div>
@@ -140,16 +160,21 @@ function App(){
         </div>;
       })}</details>)}</div>
     </section>
-    <button className="desk-toggle" aria-expanded={deskOpen} onClick={()=>setDeskOpen(s=>!s)}>{deskOpen?'Close desk':'Investigation desk'}</button>
+    <nav className="top-actions" aria-label="Account and workspace"><span>{roleLabel}</span><button onClick={()=>setAccountOpen(s=>!s)}>{platform?.user?platform.user.email:'Sign in'}</button><button aria-expanded={deskOpen} onClick={()=>setDeskOpen(s=>!s)}>{deskOpen?'Close desk':'Investigation desk'}</button></nav>
+    {accountOpen&&<aside className="account-panel" aria-label="Account panel"><button className="close" onClick={()=>setAccountOpen(false)}>×</button><h2>{platform?.user?'Account':'Team access'}</h2>{platform?.user?<><p><b>{platform.user.email}</b><br/>Role: {platform.user.role}</p><button onClick={()=>void account('logout')}>Sign out</button></>:<><p>Sign in to persist portfolios, alert actions and exports. The public synthetic demo needs no account.</p><input aria-label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="work@example.com"/><input aria-label="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="10+ character password"/><select aria-label="Role" value={role} onChange={e=>setRole(e.target.value as Role)}><option value="insurer">Insurer</option><option value="broker">Broker</option><option value="reinsurer">Reinsurer</option></select><div className="button-row"><button onClick={()=>void account('login')}>Sign in</button><button onClick={()=>void account('register')} disabled={!platform?.persistent||!platform.authConfigured}>Create account</button></div>{(!platform?.persistent||!platform.authConfigured)&&<small>Account creation is disabled until DATABASE_URL and AUTH_SECRET are configured. TODO(me).</small>}</>}{accountError&&<p role="alert" className="feed-error">{accountError}</p>}</aside>}
     <aside className={`portfolio-panel ${deskOpen?'desk-open':'desk-closed'}`}><header><div><span>SYNTHETIC BOOK · LIVE CONTEXT</span><h2>Investigation desk</h2></div><b>{portfolio.sites.length} sites</b></header>
-      <section><label>EARTHQUAKE EXPOSURE SCREEN</label><h3>{alerts.length} proximity indicators</h3>{alerts[0]?<p>{alerts[0].eventTitle} · {money(alerts[0].exposureAtRisk)} declared exposure within 650 km</p>:<p>No earthquake within the illustrative screening radius of covered sites.</p>}<small>650 km is not a shaking footprint.</small>{alerts[0]&&<Citation p={alerts[0].provenance[0]}/>}<Citation p={portfolio.sites[0].provenance}/></section>
+      <section><label>RANKED EXPOSURE INDICATORS</label><h3>{alerts.length} open signals</h3>{alerts.length?alerts.slice(0,5).map((alert,index)=><article className="alert-card" key={alert.id}><b>#{index+1} · {alert.eventTitle}</b><p>{money(alert.exposureAtRisk)} declared exposure · score {alert.weightedScore.toLocaleString(undefined,{maximumFractionDigits:0})}</p><small>{alert.touchedSiteIds.length} covered sites within the illustrative 650 km screening distance.</small><div className="button-row"><button onClick={()=>void setAlert(alert.id,'acknowledged')}>Acknowledge</button><button onClick={()=>void setAlert(alert.id,'snoozed')}>Snooze 24h</button><button onClick={()=>void setAlert(alert.id,'dismissed')}>Dismiss</button></div><Citation p={alert.provenance[0]}/></article>):<p>No monitored event touches covered exposure under the current threshold.</p>}<small>650 km is a triage radius, not a modeled footprint.</small><Citation p={portfolio.sites[0].provenance}/></section>
+      <section><label>ALERT PREFERENCES</label><p>Minimum severity: {Math.round((platform?.preferences?.severityThreshold??.45)*100)}% · top {platform?.preferences?.topN??10}</p><input aria-label="Minimum severity" type="range" min="0" max="1" step=".05" value={platform?.preferences?.severityThreshold??.45} onChange={e=>void savePreferences({severityThreshold:Number(e.target.value),topN:platform?.preferences?.topN??10,emailEnabled:platform?.preferences?.emailEnabled??false})}/><label className="check"><input type="checkbox" checked={platform?.preferences?.emailEnabled??false} onChange={e=>void savePreferences({severityThreshold:platform?.preferences?.severityThreshold??.45,topN:platform?.preferences?.topN??10,emailEnabled:e.target.checked})}/> EMAIL DIGEST {platform?.user?'':'(SIGN IN REQUIRED)'}</label></section>
       <section><label>TOP COUNTRY ACCUMULATION</label><h3>{concentration.byCountry[0]?.[0]} · {money(concentration.byCountry[0]?.[1]??0)}</h3><Citation p={portfolio.sites[0].provenance}/></section>
+      <section><label>PORTFOLIO DATA</label>{platform?.user?<><p>{platform.portfolios.length?`${platform.portfolios.length} persisted book(s) replace the demo sites.`:'Upload a book to replace synthetic sites.'}</p><input type="file" accept=".csv,text/csv" aria-label="Upload portfolio CSV" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);}}/><div className="button-row"><a className="action-link" href="/api/export?format=csv">Export CSV</a><a className="action-link" href="/api/export?format=pdf">Export PDF</a></div></>:<p>Sign in to upload and persist a private CSV. Required columns: name, address, lat, lon, sum_insured, peril_cover; optional country.</p>}{accountError&&<p className="feed-error">{accountError}</p>}</section>
       <section><label>LIVE SANCTIONS NAME SCREEN</label><p>Enable OFAC, EU and UN in the layer controls. Records without source coordinates are not plotted.</p>
         <form onSubmit={e=>{e.preventDefault();void submitScreen(query.trim());}}><input aria-label="Company or person name" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Company or person name"/><button disabled={!query.trim()||!sanctionsRecordCount||screeningLoading}>{screeningLoading?'Screening…':'Screen name'}</button></form>
         <p>{sanctionsRecordCount.toLocaleString()} loaded names · {complete?'All three lists loaded':'INCOMPLETE list coverage'}</p>{screenError&&<p className="feed-error">{screenError}</p>}
         {screening&&<><h3>{screening.status==='CLEAR'?'No candidate in loaded lists':`${screening.status} — review required`}</h3><p>Not compliance clearance. {screenQuery}</p>{screening.evidence.map((e,i)=><p key={i}>{e.matchedName} · {e.list}<br/><a href={e.provenance.sourceUrl} target="_blank" rel="noreferrer">Source · fetched {e.provenance.fetchedAt}</a></p>)}</>}
       </section>
-      <section><label>SCENARIO STRESS · SYNTHETIC</label><h3>{rdsScenarios[0].name.value}</h3><p>{scenario.touchedSites.length} sites · {money(scenario.exposureAtRisk)} declared exposure in illustrative footprint</p><Citation p={rdsScenarios[0].name.provenance}/><Citation p={portfolio.sites[0].provenance}/></section>
+      <section><label>SCENARIO STRESS · SYNTHETIC</label><select value={scenarioId} onChange={e=>{setScenarioId(e.target.value);const s=rdsScenarios.find(v=>v.id===e.target.value);if(s)setScenarioSeverity(s.severity.value);}}>{rdsScenarios.map(s=><option value={s.id} key={s.id}>{s.name.value}</option>)}</select><label htmlFor="severity">SEVERITY {Math.round(scenarioSeverity*100)}%</label><input id="severity" type="range" min="0" max="1" step=".05" value={scenarioSeverity} onChange={e=>setScenarioSeverity(Number(e.target.value))}/><p>{scenario.touchedSites.length} sites · {money(scenario.exposureAtRisk)} declared exposure in illustrative footprint · {money(scenario.severityWeightedExposure)} severity-weighted context</p><p>{selectedScenario.narrative.value}</p><Citation p={selectedScenario.name.provenance}/><Citation p={portfolio.sites[0].provenance}/></section>
+      <section><label>ACCESSIBLE NON-MAP VIEW</label><table><thead><tr><th>Signal</th><th>Severity</th><th>Source</th></tr></thead><tbody>{allEvents.slice(0,10).map(e=><tr key={e.id}><td>{e.title.value.slice(0,45)}</td><td>{Math.round(e.severity.value*100)}</td><td><a href={e.title.provenance.sourceUrl}>{e.title.provenance.sourceName}</a></td></tr>)}</tbody></table></section>
+      {platform?.user?.role==='admin'&&<section><label>OPERATIONS HEALTH</label><h3>{health?.status??'Loading…'} · {health?.summary.healthy??0}/{health?.summary.total??0} healthy</h3><p>{health?.feeds.filter(v=>v.status!=='healthy'&&v.status!=='disabled').map(v=>`${v.id}: ${v.status}`).join(' · ')||'No unhealthy active feed reported.'}</p><a href="/api/health" target="_blank" rel="noreferrer">Open health JSON</a></section>}
     </aside>
     <footer className="provenance"><div>Source: USGS FDSN · fetched {results.usgs?.fetchedAt??'pending / unavailable'}</div><div className="disclaimer">{INVESTIGATION_DISCLAIMER}</div></footer>
   </main>;

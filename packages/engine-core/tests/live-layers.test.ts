@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 import { describe,expect,it,vi } from 'vitest';
-import { xml,parseGdacs,parseNhc,parseGdelt,parseOfac,parseEu,parseUn,parseVolcano,parseAirQuality,parseNws,parseSignificant,parseWorldBank,loadLayer,layerDefinitions } from '../src/live-layers';
-import {parseFirms,parseOpenSky,parseAis,restrictedLayers} from '../src/restricted-layers';
+import { xml,parseGdacs,parseNhc,parseGdelt,parseOfac,parseEu,parseUn,parseVolcano,parseAirQuality,parseNws,parseSignificant,parseWorldBank,parseEconomicContext,parseCyberClimate,loadLayer,layerDefinitions } from '../src/live-layers';
+import {parseFirms,parseOpenSky,parseAis,parseGdeltCloud,parseNvd,parseRbi,parseTrends,parseIrdai,restrictedLayers} from '../src/restricted-layers';
 const at='2026-09-22T00:00:00Z';
 const point={type:'Point',coordinates:[77,28]};
 const polygon={type:'Polygon',coordinates:[[[0,0],[1,0],[1,1],[0,0]]]};
@@ -60,6 +60,13 @@ describe('live source parsers',()=>{
     const m={MetaData:{MMSI:123,ShipName:'TEST',time_utc:at},Message:{PositionReport:{Latitude:28,Longitude:77,Sog:12}}};
     expect(parseAis([m,m,{...m,Message:{PositionReport:{Latitude:91,Longitude:181}}}],at)).toHaveLength(1);
   });
+  it('economic context parses official indicators and FX without inventing locations',()=>{
+    const events=parseEconomicContext({inflation:[{},[{country:{value:'India'},date:'2025',value:4.2}]],forex:{date:'2026-09-21',rates:{INR:84.1}}},at);expect(events).toHaveLength(2);expect(events[0].geometry).toBeUndefined();expect(events[1].title.value).toContain('USD/INR');
+  });
+  it('joins CISA KEV evidence to FIRST EPSS context without inventing geography',()=>{const events=parseCyberClimate({kev:{vulnerabilities:[{cveID:'CVE-2026-1',vendorProject:'Vendor',product:'Product',vulnerabilityName:'Sample',dateAdded:'2026-09-20',dueDate:'2026-10-01'}]},epss:{data:[{cve:'CVE-2026-1',epss:'.82'}]}},at);expect(events).toHaveLength(1);expect(events[0].summary.value).toContain('82.0%');expect(events[0].geometry).toBeUndefined();});
+  it('parses licensed GDELT Cloud only from supplied response data',()=>{const [e]=parseGdeltCloud({events:[{id:'1',title:'Protest report',latitude:28,longitude:77,significance:7,url:'https://example.test/story'}]},at);expect(e.kind).toBe('conflict');expect(e.position?.value).toEqual({lat:28,lon:77});});
+  it('parses NVD CVE evidence as non-geographic cyber context',()=>{const [e]=parseNvd({vulnerabilities:[{cve:{id:'CVE-2026-0001',published:at,descriptions:[{lang:'en',value:'Sample'}],metrics:{cvssMetricV31:[{cvssData:{baseScore:9.8,baseSeverity:'CRITICAL'}}]}}}]},at);expect(e.severity.value).toBeCloseTo(.98);expect(e.geometry).toBeUndefined();});
+  it('parses configured RBI, trends and IRDAI payloads with provenance',()=>{expect(parseRbi({records:[{id:'1',title:'Repo rate',value:'6.5',date:at}]},at)[0].title.provenance.sourceName).toBe('Reserve Bank of India');expect(parseTrends({results:[{term:'cyber insurance',region:'India',score:72}]},at)[0].severity.value).toBe(.72);expect(parseIrdai({rss:{channel:{item:[{title:'Circular',link:'https://irdai.gov.in/circular'}]}}},at)[0].title.value).toBe('Circular');});
 });
 describe('feed isolation and cache',()=>{
   it('caches a successful response with the original fetch timestamp',async()=>{
@@ -72,7 +79,7 @@ describe('feed isolation and cache',()=>{
     const good=await loadLayer({...d,id:'good-test'},{mode:'live',now:new Date(),fetcher:vi.fn().mockResolvedValue({ok:true,json:async()=>({features:[{geometry:point,properties:{name:'sample'}}]})})});
     expect(failed.events).toEqual([]);expect(failed.fetchedAt).toBeUndefined();expect(good.events).toHaveLength(1);
   });
-  it.each(restrictedLayers({}))('$id never calls the network without keys/licence acceptance',async d=>{
+  it.each(restrictedLayers({}).filter(d=>d.disabledReason))('$id never calls the network without keys/licence acceptance',async d=>{
     const fetcher=vi.fn();const result=await loadLayer(d,{mode:'live',now:new Date(),fetcher});expect(result.events).toEqual([]);expect(result.error).toBeTruthy();expect(fetcher).not.toHaveBeenCalled();
   });
 });

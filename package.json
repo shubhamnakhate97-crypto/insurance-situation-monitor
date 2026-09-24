@@ -9,5 +9,9 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "verify": "pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "pdf-lib": "^1.17.1"
   }
 }

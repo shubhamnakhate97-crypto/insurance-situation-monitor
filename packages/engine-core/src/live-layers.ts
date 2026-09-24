@@ -29,9 +29,20 @@ export function sourcedEvent(id: string, title: string, kind: EventKind, source:
 }
 export const layerDefinitions: LayerDefinition[] = [];
 export async function request(url:string, fetcher:typeof fetch=fetch, format?:'xml'|'text',timeoutMs=25000):Promise<any> {
-  const response=await fetcher(url,{signal:AbortSignal.timeout(timeoutMs)});
-  if(!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return format==='xml'?xml.parse(await response.text()):format==='text'?await response.text():response.json();
+  let failure:unknown;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      const response=await fetcher(url,{signal:AbortSignal.timeout(timeoutMs)});
+      if(!response.ok){
+        if(![408,425,429,500,502,503,504].includes(response.status))throw new Error(`${url}: HTTP ${response.status}`);
+        const retryAfter=Number(response.headers?.get?.('retry-after')??0)*1000;
+        if(attempt<2)await new Promise(resolve=>setTimeout(resolve,Math.min(5000,retryAfter||250*(2**attempt))));
+        failure=new Error(`${url}: HTTP ${response.status}`);continue;
+      }
+      return format==='xml'?xml.parse(await response.text()):format==='text'?await response.text():response.json();
+    }catch(error){failure=error;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,250*(2**attempt)));}
+  }
+  throw failure instanceof Error?failure:new Error(`${url}: request failed`);
 }
 const cache = new Map<string, { expires: number; result: LayerResult }>();
 const pending = new Map<string, Promise<LayerResult>>();
@@ -187,3 +198,32 @@ export function parseWorldBank(data:any,at:string):SituationEvent[] {
 }
 layerDefinitions.push({id:'world-bank',name:'Political stability · annual',source:'World Bank WGI / Natural Earth',endpoint:WB_URL,group:'Geopolitical & sanctions',color:'#986ce0',defaultOn:false,cadenceMinutes:1440,parse:parseWorldBank,
  fetchPayload:async f=>({indicator:await request(WB_URL,f),boundaries:await request(BOUNDARIES_URL,f),endpoints:[WB_URL,BOUNDARIES_URL]})});
+
+export const WB_ECONOMIC_URLS={
+  inflation:'https://api.worldbank.org/v2/country/IND/indicator/FP.CPI.TOTL.ZG?format=json&per_page=10&mrnev=1',
+  unemployment:'https://api.worldbank.org/v2/country/IND/indicator/SL.UEM.TOTL.ZS?format=json&per_page=10&mrnev=1',
+  credit:'https://api.worldbank.org/v2/country/IND/indicator/FS.AST.DOMS.GD.ZS?format=json&per_page=10&mrnev=1'
+};
+export const FOREX_URL='https://api.frankfurter.app/latest?from=USD&to=INR';
+export function parseEconomicContext(data:any,at:string):SituationEvent[] {
+  const output:SituationEvent[]=[];
+  const add=(id:string,title:string,summary:string,url:string,observed=at)=>output.push(sourcedEvent(id,title,'country-risk','World Bank / Frankfurter',url,at,undefined,summary,.35,observed));
+  for(const [id,label,unit] of [['inflation','India inflation','% annual'],['unemployment','India unemployment','% labour force'],['credit','India domestic credit','% GDP']] as const){
+    const row=data[id]?.[1]?.find((r:any)=>r.value!==null);if(row)add(`economic-${id}`,`${label}: ${Number(row.value).toFixed(2)} ${unit}`,`${row.indicator?.value??label}. Published period ${row.date}; macro context, not a live insured-loss indicator.`,WB_ECONOMIC_URLS[id],`${row.date}-01-01`);
+  }
+  const rate=Number(data.forex?.rates?.INR);if(Number.isFinite(rate))add('economic-usdinr',`USD/INR: ${rate.toFixed(4)}`,'Reference exchange rate context. Verify the applicable transaction rate before financial use.',FOREX_URL,data.forex.date?`${data.forex.date}T00:00:00Z`:at);
+  if(!output.length)throw new Error('Expected World Bank or forex observations');return output;
+}
+layerDefinitions.push({id:'economic-context',name:'India economic conditions',source:'World Bank / Frankfurter',endpoint:WB_ECONOMIC_URLS.inflation,group:'Economic conditions',color:'#355f8d',defaultOn:true,cadenceMinutes:1440,parse:parseEconomicContext,
+  note:'Background indicators only; not mapped and not a loss forecast.',fetchPayload:async f=>({inflation:await request(WB_ECONOMIC_URLS.inflation,f),unemployment:await request(WB_ECONOMIC_URLS.unemployment,f),credit:await request(WB_ECONOMIC_URLS.credit,f),forex:await request(FOREX_URL,f),endpoints:[...Object.values(WB_ECONOMIC_URLS),FOREX_URL]})});
+
+export const CISA_KEV_URL='https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+export const EPSS_URL='https://api.first.org/data/v1/epss?order=!epss&limit=100';
+export function parseCyberClimate(data:any,at:string):SituationEvent[] {
+  const kev=Array.isArray(data.kev?.vulnerabilities)?data.kev.vulnerabilities:[],epss=Array.isArray(data.epss?.data)?data.epss.data:[];
+  const epssByCve=new Map<string,number>(epss.map((v:any)=>[String(v.cve),Number(v.epss)] as [string,number]));
+  const events:SituationEvent[]=kev.slice(0,200).map((v:any)=>{const probability=epssByCve.get(v.cveID),hasProbability=probability!==undefined&&Number.isFinite(probability);return sourcedEvent(`kev-${v.cveID}`,`${v.cveID} · known exploited`,'cyber','CISA KEV',CISA_KEV_URL,at,undefined,`${v.vendorProject??'Unknown vendor'} ${v.product??''}: ${v.vulnerabilityName??''}. Required action due ${v.dueDate??'not stated'}.${hasProbability?` FIRST EPSS probability ${(probability*100).toFixed(1)}%.`:''} Threat-weather context only; not a prediction of loss.`,hasProbability?Math.max(.7,probability):.7,v.dateAdded??at);});
+  const known=new Set(events.map(e=>e.id.slice(4)));for(const row of epss.slice(0,50)){if(known.has(row.cve))continue;const score=Number(row.epss);events.push(sourcedEvent(`epss-${row.cve}`,`${row.cve} · elevated EPSS`,'cyber','FIRST EPSS',EPSS_URL,at,undefined,`Estimated exploitation probability ${Number.isFinite(score)?(score*100).toFixed(1):'unknown'}%; model signal, not confirmed exploitation or a loss prediction.`,Number.isFinite(score)?score:0,row.date??at));}
+  if(!events.length)throw new Error('Expected CISA KEV or FIRST EPSS records');return events;
+}
+layerDefinitions.push({id:'cyber-climate',name:"This week's cyber climate",source:'CISA KEV / FIRST EPSS',endpoint:CISA_KEV_URL,group:'Cyber exposure',color:'#0072b2',defaultOn:false,cadenceMinutes:360,parse:parseCyberClimate,note:'Known exploitation and probability context; not predictive cyber scoring.',fetchPayload:async f=>({kev:await request(CISA_KEV_URL,f),epss:await request(EPSS_URL,f),endpoints:[CISA_KEV_URL,EPSS_URL]})});

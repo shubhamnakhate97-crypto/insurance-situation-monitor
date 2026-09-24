@@ -21,6 +21,13 @@ All map feeds are live-only, with independent failures and no fixture fallback. 
 | OpenSky | 1 min | Off, credentials + terms flag | Parser tested; non-commercial/licensed terms require review |
 | AISstream | 1 min, 12s collection window | Off, key + terms flag | Parser tested; non-commercial/licensed terms require review; bounded snapshot, not global completeness |
 | OSM raster tiles | Browser HTTP caching | On | Keyless; OSM attribution shown, provider usage policy applies |
+| World Bank macro + Frankfurter FX | 24h | On | Inflation, unemployment, domestic credit and USD/INR background context; non-geographic |
+| NIST NVD | 60 min | Off toggle | Last-24h CVE disclosure context; keyless low rate, optional key recommended |
+| CISA KEV + FIRST EPSS | 6h | Off toggle | Known-exploited catalogue joined to probability context; non-geographic, not loss prediction |
+| GDELT Cloud | 60 min | Off, plan key required | Licensed structured geopolitical events; redistribution decision required |
+| RBI | 24h | Off, confirmed URL required | Adapter only; official machine endpoint TODO(me), no portal scraping |
+| IRDAI | 24h | Off, confirmed feed required | Adapter only; official feed TODO(me), no portal scraping |
+| Google Trends provider | 24h | Off, provider URL/key required | Terms-sensitive demand signal; approved provider only |
 
 ## Legacy catalogue — planned/scaffold sources, NOT a claim of implemented live layers
 

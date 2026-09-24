@@ -3,12 +3,12 @@
 1. This v1 is a situational-awareness demo, not a system of record or decision engine.
 2. The map now requires Internet for real live feeds and raster tiles, but no API keys for defaults. Fixtures are only offline test inputs; the portfolio and RDS scenarios remain explicitly synthetic.
 3. The internal demo is one public MIT-licensed application; there is no free/paid boundary.
-4. SQLite-compatible storage is represented by repository interfaces in v1; the demo uses browser/local process storage and can move to Postgres without changing public contracts.
+4. Postgres/Neon is the production persistence target. Without `DATABASE_URL`, the repository is ephemeral and registration is disabled; only the public synthetic demo is promised.
 5. Population/asset density is a sourced proxy and never presented as insured loss.
 6. CRESTA examples are illustrative country/zone references; licensed official boundary files are not redistributed. `TODO(me): license authoritative CRESTA data for production.`
 7. Live popups do not use the existing fixture return-period or CRESTA assertions. They state that recurrence is not estimated, and label the small historical analog library as illustrative.
-8. Region-watch email delivery is represented by an outbox adapter in demo mode. `TODO(me): select transactional email vendor and sender domain.`
-9. Authentication, entitlements, subscriptions, and billing are intentionally absent from this demo.
+8. Scheduled email uses Resend when configured. `TODO(me): verify the sending domain, retention/DPA requirements and production recipient policy.`
+9. Authentication and role scoping are included; subscriptions, billing and entitlements remain intentionally absent.
 11. Sanctions matching is screening support; legal/placeability determinations remain human decisions.
 12. Majority ownership propagation uses a >=50% threshold for the demo. `TODO(me): have counsel approve applicable aggregation rules by regime.`
 13. Nominatim is development-only, rate-limited and cached. Production must select a commercial geocoder. `TODO(me)`.
@@ -18,4 +18,8 @@
 17. NHC covers Atlantic/Eastern/Central Pacific basins; tracks are forecasts, not observed hazard footprints. NWS covers the US; only supplied geometries are drawn. GDELT mentions are not verified incidents, and its currently failing endpoint remains clearly unavailable.
 18. World Bank political stability is annual context, not a live incident feed. Natural Earth boundaries are coarse and illustrative; not authoritative disputed-border determinations.
 19. Restricted sources cannot be live-verified without human-supplied keys and terms approval. No keys or licence acceptance are invented. Their parsers are tested offline and missing-key paths fail closed.
-20. Vite's same-origin feed middleware supports development and internal-demo preview. Vercel uses equivalent serverless functions; sanctions cache persistence is opportunistic on its ephemeral runtime. Static-only dist hosting is insufficient.
+20. Vite's same-origin feed middleware supports local development. Vercel uses functions, Postgres snapshots and an hourly protected cron; static-only dist hosting is insufficient.
+21. Broker/insurer/reinsurer views are workflow labels over strictly account-scoped data in v1. Cross-account placement, cedant/broker relationships and delegated access require a human-approved data model. TODO(me).
+22. GDELT Cloud, an approved Google Trends provider, official RBI machine endpoint and official IRDAI feed remain disabled until credentials, endpoints and redistribution decisions are supplied. The application does not scrape those portals.
+23. Scenario footprints are synthetic and inspired by market RDS categories; they do not reproduce licensed Lloyd's or catastrophe-model data.
+24. The 650 km default proximity is a broad triage heuristic, not a hazard footprint or damage/loss model. Peril-specific footprints are required before operational underwriting use.

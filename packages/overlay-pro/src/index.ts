@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-import { INVESTIGATION_DISCLAIMER, screenSanctions, type Position, type Provenance, type SanctionsRecord, type SituationEvent } from "@insurance/engine-core";
+import { INVESTIGATION_DISCLAIMER, screenSanctions, type Position, type Provenance, type SanctionsRecord, type SituationEvent } from "../../engine-core/src/index.js";
 
 export interface Site { id: string; clientId: string; name: string; address: string; position: Position; sumInsured: number; perilCover: string[]; country: string; provenance: Provenance }
 export interface Entity { id: string; clientId: string; name: string; jurisdiction: string; resolvedId?: string; sumInsured: number; ultimateParentId?: string; ownershipPercent?: number; provenance: Provenance }
@@ -17,8 +17,12 @@ export function distanceKm(a: Position, b: Position): number {
 
 export function exposureWeightedAlerts(events: SituationEvent[], portfolio: Portfolio, radiusKm = 650): PortfolioAlert[] {
   return events.flatMap<PortfolioAlert>((event) => {
-    if (!event.position) return [];
-    const touched = portfolio.sites.filter((site) => site.perilCover.includes(event.kind) && distanceKm(site.position, event.position!.value) <= radiusKm);
+    const eventPositions = geometryPositions(event);
+    if (!eventPositions.length) return [];
+    const touched = portfolio.sites.filter((site) => {
+      const covered = site.perilCover.includes(event.kind) || site.perilCover.includes('all-risk');
+      return covered && eventPositions.some((position) => distanceKm(site.position, position) <= radiusKm);
+    });
     const exposureAtRisk = touched.reduce((sum, site) => sum + site.sumInsured, 0);
     if (exposureAtRisk <= 0) return [];
     return [{
@@ -33,6 +37,19 @@ export function exposureWeightedAlerts(events: SituationEvent[], portfolio: Port
       disclaimer: INVESTIGATION_DISCLAIMER,
     }];
   }).sort((a, b) => b.weightedScore - a.weightedScore);
+}
+
+function geometryPositions(event:SituationEvent):Position[] {
+  if(event.position)return [event.position.value];
+  const geometry=event.geometry as {type?:string;coordinates?:unknown}|undefined;
+  if(!geometry?.coordinates)return [];
+  const out:Position[]=[];
+  const walk=(value:unknown)=>{
+    if(Array.isArray(value)&&value.length>=2&&typeof value[0]==='number'&&typeof value[1]==='number')out.push({lon:value[0],lat:value[1]});
+    else if(Array.isArray(value))value.forEach(walk);
+  };
+  walk(geometry.coordinates);
+  return out;
 }
 
 export function accumulations(portfolio: Portfolio) {
@@ -73,15 +90,25 @@ export const money = (value: number) => new Intl.NumberFormat("en-US", { style: 
 
 export interface ImportIssue { row: number; field: string; message: string }
 export function parseSitesCsv(csv: string, clientId: string, provenance: Provenance): { rows: Site[]; issues: ImportIssue[] } {
-  const [headerLine = "", ...lines] = csv.trim().split(/\r?\n/); const headers = headerLine.split(",").map(s=>s.trim());
+  const records=parseCsvRecords(csv);const [header=[],...lines]=records;const headers=header.map(s=>s.trim().toLowerCase());
   const required = ["name","address","lat","lon","sum_insured","peril_cover"];
   const issues: ImportIssue[] = required.filter(h=>!headers.includes(h)).map(field=>({row:1,field,message:"Required column missing"}));
   if (issues.length) return { rows: [], issues };
-  const rows: Site[] = [];
-  lines.forEach((line,index)=>{ const values=line.split(",").map(s=>s.trim()); const get=(key:string)=>values[headers.indexOf(key)]; const lat=Number(get("lat")); const lon=Number(get("lon")); const sum=Number(get("sum_insured"));
-    if(!get("name")||!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(sum)||sum<=0){issues.push({row:index+2,field:"row",message:"Name, valid coordinates and positive sum_insured required"});return;}
-    rows.push({id:`import-${index+1}`,clientId,name:get("name"),address:get("address"),position:{lat,lon},sumInsured:sum,perilCover:get("peril_cover").split("|") ,country:"Imported",provenance});
+  const rows: Site[] = [];const seen=new Set<string>();
+  lines.forEach((values,index)=>{const get=(key:string)=>(values[headers.indexOf(key)]??'').trim(); const lat=Number(get("lat")); const lon=Number(get("lon")); const sum=Number(get("sum_insured"));
+    if(!get("name")){issues.push({row:index+2,field:"name",message:"Name is required"});return;}
+    if(!Number.isFinite(lat)||lat < -90||lat > 90){issues.push({row:index+2,field:"lat",message:"Latitude must be between -90 and 90"});return;}
+    if(!Number.isFinite(lon)||lon < -180||lon > 180){issues.push({row:index+2,field:"lon",message:"Longitude must be between -180 and 180"});return;}
+    if(!Number.isFinite(sum)||sum<=0){issues.push({row:index+2,field:"sum_insured",message:"A positive sum_insured is required"});return;}
+    const duplicate=`${get('name').toLowerCase()}|${lat}|${lon}`;if(seen.has(duplicate)){issues.push({row:index+2,field:"row",message:"Duplicate location"});return;}seen.add(duplicate);
+    rows.push({id:`import-${index+1}`,clientId,name:get("name"),address:get("address"),position:{lat,lon},sumInsured:sum,perilCover:get("peril_cover").split("|").map(v=>v.trim().toLowerCase()).filter(Boolean),country:get('country')||"Imported",provenance});
   }); return {rows,issues};
+}
+
+function parseCsvRecords(csv:string):string[][] {
+  const rows:string[][]=[];let row:string[]=[],field='',quoted=false;
+  for(let i=0;i<csv.length;i++){const char=csv[i];if(char==='"'){if(quoted&&csv[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}else if(char===','&&!quoted){row.push(field);field='';}else if((char==='\n'||char==='\r')&&!quoted){if(char==='\r'&&csv[i+1]==='\n')i++;row.push(field);if(row.some(v=>v.trim()))rows.push(row);row=[];field='';}else field+=char;}
+  row.push(field);if(row.some(v=>v.trim()))rows.push(row);return rows;
 }
 
 const seedProvenance: Provenance = { sourceName: "Synthetic portfolio generator v1", sourceUrl: "https://github.com/shubhamnakhate97-crypto/insurance-situation-monitor/blob/main/packages/overlay-pro/src/index.ts", fetchedAt: "2026-09-21T06:00:00.000Z", licenseNote: "Fictional data" };

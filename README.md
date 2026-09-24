@@ -1,6 +1,6 @@
 # Insurance Situation Monitor
 
-A single MIT-licensed situational-awareness app for P&C/non-life catastrophe and specialty practitioners. Live feed adapters power independently switchable map layers, alongside a synthetic portfolio, earthquake exposure screens, accumulation, live sanctions name screening, and illustrative scenario stress testing.
+A single MIT-licensed situational-awareness app for P&C/non-life catastrophe and specialty practitioners. Live feed adapters power independently switchable map layers, alongside role-aware workspaces, private portfolio import, cross-peril exposure triage, accumulation, sanctions screening, scenarios and exports.
 
 > All outputs are indicators for investigation, not underwriting, pricing, or reserving decisions.
 
@@ -13,7 +13,24 @@ pnpm install
 pnpm --filter web dev
 ```
 
-Open http://localhost:3000. No login, subscription, entitlement, billing configuration, Mapbox token, or API key is required. The map uses keyless OpenStreetMap raster tiles and loads magnitude 2.5+ earthquakes from the last 30 days through the USGS FDSN API.
+Open http://localhost:3000. The public demo still needs no login, Mapbox token, or API key: it uses keyless OpenStreetMap tiles, live public feeds and a clearly labelled synthetic book. Account creation, private portfolio persistence and saved alert actions activate only when `DATABASE_URL` and `AUTH_SECRET` are configured.
+
+## Production foundation
+
+Configure server-side `DATABASE_URL`, `AUTH_SECRET`, `ADMIN_EMAILS` and `CRON_SECRET`. Optional email delivery uses `RESEND_API_KEY` and `ALERT_FROM_EMAIL`. Tables are created idempotently on first use; sessions are signed, HttpOnly, SameSite cookies. Users cannot self-select the admin role. The public demo remains available when these variables are absent, while account-only operations fail closed.
+
+Insurer, broker and reinsurer users receive account-scoped workspaces; administrators can inspect operational and audit APIs. There is no billing, entitlement or paywall.
+
+## Portfolio workflow and exports
+
+Sign in, open **Investigation desk**, and upload UTF-8 CSV (maximum 5 MB and 10,000 rows):
+
+```text
+name,address,lat,lon,sum_insured,peril_cover,country
+Mumbai Plant,"1 Main Road, Mumbai",19.08,72.88,25000000,earthquake|cyclone|flood,India
+```
+
+Imports are validated server-side for quoting, required fields, coordinate bounds, positive insured values and duplicates. Ranked alerts require touched covered exposure and order signals by severity × declared exposure. Users can acknowledge, dismiss or snooze signals and persist threshold/email preferences. Authenticated CSV/PDF exports are in the desk; `/api/v1/alerts` provides JSON. All outputs retain source evidence and the investigation-only disclaimer.
 
 ## Verify
 
@@ -37,15 +54,18 @@ Copy `.env.example` to `.env` at the repository root, supply only the sources yo
 
 | Source | Configuration | Behaviour without configuration |
 |---|---|---|
-| NASA FIRMS | `VITE_FIRMS_MAP_KEY` | Disabled with explanation |
+| NASA FIRMS | `FIRMS_MAP_KEY` (legacy `VITE_FIRMS_MAP_KEY` accepted server-side) | Disabled with explanation |
 | OpenSky | `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, `OPENSKY_LICENSE_ACCEPTED=true` | Disabled |
 | AISstream | `AISSTREAM_API_KEY`, `AISSTREAM_LICENSE_ACCEPTED=true` | Disabled |
+| GDELT Cloud | `GDELT_API_KEY` | Disabled pending a suitable API/redistribution plan |
+| NIST NVD | Optional `NVD_API_KEY` | Keyless low-rate access; key recommended for production |
+| RBI / IRDAI / Trends | Confirmed endpoint/provider variables in `.env.example` | Disabled; no portal scraping |
 
 Despite the requested `VITE_` name, FIRMS credentials are **server-only**: Vite exposes only `PUBLIC_` variables. Never place transport credentials in a `PUBLIC_` variable. OpenSky/AIS are off by default; TODO(me): verify licensed/non-commercial terms before enabling, and obtain appropriate rights before commercial use. Open-Meteo's free API is non-commercial: its default-off city sampling is intended only for this internal demo. TODO(me): use the contracted endpoint/plan before commercial operation. No credentialed live success is claimed without real keys.
 
 ## Feed service and deployment
 
-The app's Vite middleware is a fixed-catalogue same-origin feed service, not an arbitrary URL proxy. It avoids source CORS limitations and keeps keys out of the browser. Build/preview with `pnpm --filter web build` then `pnpm --filter web preview`; preview includes this middleware. Static-only hosting of `dist` will **not** serve additional feeds. The Docker configuration retains the service and persists the sanctions cache. Vite preview is for this internal demo, not a hardened public production server; TODO(me): move the same handler into a production Node service before public deployment.
+The app's Vite middleware is a fixed-catalogue same-origin service for local development; Vercel functions provide production handlers. It avoids source CORS limitations and keeps keys out of the browser. Build/preview with `pnpm --filter web build` then `pnpm --filter web preview`. Static-only hosting of `dist` will **not** serve feeds or account workflows. The hourly Vercel cron refreshes eligible sources, records last-known-good snapshots and optionally sends portfolio alerts.
 
 Vercel deployment is defined by the root `vercel.json` and `api/` serverless functions. Sanctions lists are loaded and matched server-side; only counts and match evidence cross the browser boundary, avoiding oversized list responses. Restricted-source secrets belong in Vercel project environment variables, never `PUBLIC_*`. The serverless `/tmp` cache is opportunistic and may be cold between invocations; official-list fetch failures remain visible and never imply clearance.
 
